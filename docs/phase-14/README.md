@@ -2,6 +2,8 @@
 
 Status: local automated and browser verification is complete. Staging, provider, restore, load and client-acceptance gates remain external and must pass before production approval.
 
+> Historical verification note: the delivery-versus-pickup interface below was tested before the client approved the final pickup-first launch policy. Current checkout selects S18 pickup and routes town-parcel requests to WhatsApp. See the [current business policy](../business/store-pickup-and-delivery-policy.md) and [latest verification](../phase-15/verification.md).
+
 ## Delivered
 
 - Layered Django coverage for models, services, permissions, APIs, templates, payments, inventory, fulfilment, notifications and reports.

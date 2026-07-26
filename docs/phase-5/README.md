@@ -2,6 +2,8 @@
 
 Status: **implementation verified; external certification pending**. This phase is not production-certified and no live payment is authorized.
 
+> Historical scope note: the payment services retain delivery-order support, but the later approved launch storefront accepts S18 pickup only. Town parcels are arranged through WhatsApp and prepaid only after staff confirms the route and final total. See the [current business policy](../business/store-pickup-and-delivery-policy.md).
+
 ## Scope
 
 This phase hardens M-Pesa initiation, callback reconciliation, polling, failure handling, manual-reference review, and POS cash accounting. Ordinary tests mock external providers. Daraja sandbox certification and an explicitly authorized low-value production check remain deployment gates.

@@ -3,6 +3,8 @@
 Date: 2026-07-26  
 Environment: local development/test configuration, isolated Django test databases and mocked external providers.
 
+This is a dated Phase 14 snapshot. Its delivery-selector browser evidence was superseded by the later client-approved S18-pickup/WhatsApp launch policy; it remains here to preserve honest test history. Current release evidence is recorded in [Phase 15 verification](../phase-15/verification.md).
+
 ## Automated checks
 
 | Check | Result |

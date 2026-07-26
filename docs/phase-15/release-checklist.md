@@ -13,8 +13,8 @@ No one may approve release while an unchecked launch blocker remains. Attach evi
 
 ## Critical journeys
 
-- [ ] Guest/customer delivery checkout passes with live fee/exact total.
-- [ ] Guest/customer S18 pickup passes with explicit choice, slot, code and expiry.
+- [ ] Guest/customer S18 pickup passes with the selected pickup method, active arrangement, exact total, confirmation, code and expiry.
+- [ ] “Send to my town” opens the approved cart-aware WhatsApp conversation without creating an order, reserving stock or presenting an invented transport fee.
 - [ ] M-Pesa success, duplicate, missing callback/poll, cancellation, timeout, partial, excess and unknown cases pass in sandbox.
 - [ ] Failed/expired payments and pickups restore stock once.
 - [ ] Walk-in cash sale, receipt, shift close, discount and void pass.

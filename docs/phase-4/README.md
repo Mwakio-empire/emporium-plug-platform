@@ -4,6 +4,8 @@
 
 Complete and verified. The client confirmed on 2026-07-22 that cash payment is permitted for both delivery and branch pickup, with the complete payable amount displayed and explicit customer agreement required before order creation.
 
+> Historical scope note: this records the Phase 4 implementation at that date. The later approved launch policy disables public self-service delivery, selects S18 pickup, and routes town-parcel requests through the cart-aware WhatsApp handoff. See the [current business policy](../business/store-pickup-and-delivery-policy.md) and [current API reference](../phase-15/api-reference.md).
+
 ## Implemented checkout
 
 - Authenticated and guest delivery/pickup checkout from the session cart.

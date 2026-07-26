@@ -9,7 +9,7 @@ This is the implemented MVP surface, not a public compatibility guarantee. JSON 
 | GET | `/api/catalog/categories/` | Visible nested categories. |
 | GET | `/api/catalog/products/` | Active catalog with supported filters/sorting/pagination. |
 | GET | `/api/catalog/products/{slug}/` | Active product detail. |
-| GET | `/api/logistics/zones/` | Active delivery zones. |
+| GET | `/api/logistics/zones/` | Legacy delivery-zone configuration. Public launch checkout does not expose self-service delivery. |
 | GET | `/api/logistics/pickup-slots/` | Active, non-expired pickup slots. |
 
 ## Identity
@@ -30,13 +30,13 @@ This is the implemented MVP surface, not a public compatibility guarantee. JSON 
 
 | Method | Path | Access | Purpose |
 |---|---|---|---|
-| POST | `/api/checkout/preview/` | Guest/customer session | Revalidate stock/prices, fulfilment fee and coupon without creating an order. |
-| POST | `/api/checkout/init/` | Guest/customer session | Idempotently create a confirmed delivery or S18-pickup order. |
+| POST | `/api/checkout/preview/` | Guest/customer session | Revalidate stock/prices, S18 pickup and coupon without creating an order. |
+| POST | `/api/checkout/init/` | Guest/customer session | Idempotently create a confirmed S18-pickup order. |
 | POST | `/api/checkout/pay/` | Owner or signed guest token | Initiate STK for the pending order. |
 | POST | `/api/checkout/pay/fallback/` | Owner or signed guest token | Submit a typed reference for staff review; not proof of payment. |
 | GET | `/api/orders/{order_number}/status/` | Owner or signed/expiring guest access | Read that order's status only. |
 
-Checkout requires an explicit `order_type` (`ONLINE_DELIVERY` or `ONLINE_PICKUP`), phone, fulfilment details, payment method and confirmation. The server recomputes totals and never trusts browser amounts.
+Public launch checkout accepts `ONLINE_PICKUP` only and requires an active S18 pickup arrangement, phone, approved payment method and explicit confirmation. A forged `ONLINE_DELIVERY` request is rejected and directed to the approved WhatsApp-assisted town-parcel process. The server recomputes totals and never trusts browser amounts.
 
 ## Inventory
 

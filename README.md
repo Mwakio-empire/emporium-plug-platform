@@ -2,7 +2,7 @@
 
 Commercial Django retail platform for a multi-branch Kenyan retailer. The current codebase covers a customer storefront, branch inventory, POS sales, online orders, M-Pesa integration, delivery/pickup operations, notifications, reconciliation, and reporting.
 
-The project is under active development. A passing automated suite does not mean the system is approved for live payments or production use. See [Phase 0 audit](docs/phase-0/README.md) for verified scope and known limitations.
+The project is under active development. A passing automated suite does not mean the system is approved for live payments or production use. Use the [current traceability matrix](docs/phase-15/requirements-traceability.md), [known limitations](docs/phase-15/known-limitations.md) and [release checklist](docs/phase-15/release-checklist.md) for current status; Phase 0 and later phase records are dated implementation evidence.
 
 ## Local setup
 
@@ -76,9 +76,14 @@ npm.cmd audit
 ## Documentation
 
 - [Phase 0 audit, traceability and defect register](docs/phase-0/README.md)
+- [Phase 1 domain and data-integrity foundation](docs/phase-1/README.md)
+- [Phase 1.5 inventory semantics](docs/phase-1-5/README.md)
 - [Phase 2 identity, authentication and authorization](docs/phase-2/README.md)
 - [Phase 3 catalog and storefront](docs/phase-3/README.md)
 - [Phase 4 checkout](docs/phase-4/README.md)
+- [Phase 5 M-Pesa and cash payments](docs/phase-5/README.md)
+- [Phase 6 POS and staff accountability](docs/phase-6/README.md)
+- [Phase 7 inventory operations and transfers](docs/phase-7/README.md)
 - [Phase 8 order fulfilment](docs/phase-8/README.md)
 - [Phase 9 promotions, reviews and returns](docs/phase-9/README.md)
 - [Phase 10 reports and client operations](docs/phase-10/README.md)

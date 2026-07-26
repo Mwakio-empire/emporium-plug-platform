@@ -5,10 +5,13 @@ Date: 2026-07-26
 ## Documentation checks
 
 - All 28 required document categories are mapped in the Phase 15 index.
-- All project-local Markdown links resolve.
+- All project-local Markdown links across 109 repository documents resolve.
 - Phase 15 files contain no known mojibake markers, placeholder claims or embedded credentials.
 - Guides reference implemented routes/workflows and distinguish local verification from external certification.
 - Known limitations, deferred features, client decisions and release gates are explicit.
+- Current API, release, UAT, changelog and traceability documents agree that public launch checkout creates S18-pickup orders only; town parcels use the non-order-creating WhatsApp handoff.
+- Older delivery-selector records are retained as dated historical evidence and explicitly point readers to the superseding launch policy.
+- All 48 concrete paths sampled from the API reference resolve through Django's active URL configuration.
 
 ## Repository checks
 

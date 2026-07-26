@@ -19,7 +19,7 @@
 | Notifications | Durable deduplicated attempts, retries, follow-up queue, templates and safe console provider | Complete and verified locally | Approved provider credentials and sandbox certification. |
 | Security/privacy | Review, threat model, PII controls, privacy operations and breach runbook | Implemented and locally reviewed | External assessment and qualified Kenyan privacy/legal approval. |
 | Production engineering | Render blueprints, environment guards, health, logging, Sentry, deployment/rollback and native backup procedure | Implemented but externally unverified | Provision, alerts, restore, load, latency and failover evidence. |
-| Testing | 504-test local suite, browser journeys and manual UAT pack | Complete locally | PostgreSQL lock test, provider/recovery/load/security and client UAT pending. |
+| Testing | 512-test local suite, browser journeys and manual UAT pack | Complete locally | PostgreSQL lock test, provider/recovery/load/security and client UAT pending. |
 | Documentation | Phase 15 indexed engineering/operations/client guides | Complete and locally verified | Client review, named owners and acceptance signatures. |
 
 ## Client decisions still required

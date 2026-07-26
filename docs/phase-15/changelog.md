@@ -4,7 +4,7 @@
 
 ### Added
 
-- Multi-branch storefront/cart, explicit delivery/S18 pickup checkout and signed guest tracking.
+- Multi-branch storefront/cart, S18-pickup checkout, cart-aware WhatsApp town-parcel handoff and signed guest tracking.
 - Cash/COD and M-Pesa subsystem with exact-amount/idempotent callback handling and reconciliation.
 - Shift-bound POS, receipts, manager discounts, reversal voids and variance review.
 - OTC intake, inventory states, transfers/partial receipt, counts and low-stock alerts.
@@ -17,8 +17,8 @@
 
 - Storefront redesigned for mobile/desktop with client colors, cart icon and exact logo-derived trolley favicon.
 - Internal branch choice removed from customers; the system allocates one shop for the basket.
-- Checkout requires explicit delivery or S18-pickup choice; neither is preselected.
-- Delivery fee updates live and coupon feedback states valid/invalid clearly.
+- Launch checkout selects S18 pickup; “Send to my town” opens an assisted WhatsApp conversation and does not create or silently convert an order.
+- Pickup fee remains zero, the final payable total updates correctly, and coupon feedback states valid/invalid clearly.
 - Saturday counts as a pickup working day; Sunday does not.
 
 ### Security/correctness
