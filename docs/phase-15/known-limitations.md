@@ -5,6 +5,7 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 ## Production and external proof
 
 - Render staging/production resources have not been provisioned.
+- The first staging infrastructure bootstrap may use explicitly enabled ephemeral media. Uploaded files will not survive a redeploy until item 11 configures Cloudinary; production cannot enable this setting.
 - Daraja and notification providers are verified through mocks/local controls, not complete provider certification.
 - Scheduled-report email is locally failure-safe and configured for Brevo SMTP, but remains disabled until the business domain/sender and staging provider delivery are manually verified.
 - Managed PostgreSQL PITR and the off-site logical archive have not been restored in a controlled host test.

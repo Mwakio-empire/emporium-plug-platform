@@ -1,5 +1,8 @@
 # Isolated pre-production environment. Sync this Blueprint separately from
 # render.yaml and never enter production credentials or customer data here.
+# Email, customer notifications, Sentry and Daraja credentials remain disabled
+# until their later certification items. Media is intentionally ephemeral only
+# for the infrastructure bootstrap and must move to Cloudinary in item 11.
 envVarGroups:
   - name: emporium-staging-settings
     envVars:
@@ -10,11 +13,11 @@ envVarGroups:
       - key: SECRET_KEY
         generateValue: true
       - key: ALLOWED_HOSTS
-        sync: false
+        value: emporium-plug-ke-staging-web.onrender.com
       - key: SITE_BASE_URL
-        sync: false
+        value: https://emporium-plug-ke-staging-web.onrender.com
       - key: CSRF_TRUSTED_ORIGINS
-        sync: false
+        value: https://emporium-plug-ke-staging-web.onrender.com
       - key: TRUST_PROXY_HEADERS
         value: "True"
       - key: SECURE_SSL_REDIRECT
@@ -28,29 +31,9 @@ envVarGroups:
       - key: REPORT_EMAIL_ENABLED
         value: "False"
       - key: EMAIL_BACKEND
-        value: django.core.mail.backends.smtp.EmailBackend
-      - key: EMAIL_HOST
-        value: smtp-relay.brevo.com
-      - key: EMAIL_PORT
-        value: "587"
-      - key: EMAIL_USE_TLS
+        value: django.core.mail.backends.console.EmailBackend
+      - key: STAGING_ALLOW_EPHEMERAL_MEDIA
         value: "True"
-      - key: EMAIL_USE_SSL
-        value: "False"
-      - key: EMAIL_HOST_USER
-        sync: false
-      - key: EMAIL_HOST_PASSWORD
-        sync: false
-      - key: DEFAULT_FROM_EMAIL
-        sync: false
-      - key: EMAIL_TIMEOUT
-        value: "20"
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
       - key: NOTIFICATION_PROVIDER
         value: console
       - key: WHATSAPP_FALLBACK_ENABLED
@@ -61,18 +44,8 @@ envVarGroups:
         value: "False"
       - key: MPESA_ENVIRONMENT
         value: sandbox
-      - key: MPESA_CONSUMER_KEY
-        sync: false
-      - key: MPESA_CONSUMER_SECRET
-        sync: false
-      - key: MPESA_SHORTCODE
-        sync: false
-      - key: MPESA_PASSKEY
-        sync: false
       - key: MPESA_CALLBACK_URL
-        sync: false
-      - key: SENTRY_DSN
-        sync: false
+        value: https://emporium-plug-ke-staging-web.onrender.com/payments/mpesa/callback/
       - key: SENTRY_SEND_DEFAULT_PII
         value: "False"
       - key: BACKUP_ENABLED
@@ -80,13 +53,14 @@ envVarGroups:
 
 services:
   - type: web
-    name: emporium-staging-web
+    name: emporium-plug-ke-staging-web
     runtime: python
     region: frankfurt
     plan: starter
     autoDeployTrigger: checksPass
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
     preDeployCommand: python manage.py migrate --noinput
+    initialDeployHook: python manage.py configure_business_branches
     startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --access-logfile - --error-logfile -
     healthCheckPath: /health/ready/
     maxShutdownDelaySeconds: 60
@@ -103,13 +77,13 @@ services:
           property: connectionString
 
   - type: worker
-    name: emporium-staging-worker
+    name: emporium-plug-ke-staging-worker
     runtime: python
     region: frankfurt
     plan: starter
     autoDeployTrigger: checksPass
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A config worker --loglevel=INFO --concurrency=2
+    startCommand: python manage.py migrate --check && celery -A config worker --loglevel=INFO --concurrency=2
     maxShutdownDelaySeconds: 120
     envVars:
       - fromGroup: emporium-staging-settings
@@ -124,13 +98,13 @@ services:
           property: connectionString
 
   - type: worker
-    name: emporium-staging-beat
+    name: emporium-plug-ke-staging-beat
     runtime: python
     region: frankfurt
     plan: starter
     autoDeployTrigger: checksPass
     buildCommand: pip install -r requirements.txt
-    startCommand: celery -A config beat --loglevel=INFO --pidfile=
+    startCommand: python manage.py migrate --check && celery -A config beat --loglevel=INFO --pidfile=
     maxShutdownDelaySeconds: 60
     envVars:
       - fromGroup: emporium-staging-settings
@@ -149,6 +123,7 @@ services:
     region: frankfurt
     plan: starter
     maxmemoryPolicy: noeviction
+    persistenceMode: journal-snapshot
     ipAllowList: []
 
 databases:

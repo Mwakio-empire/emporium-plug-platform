@@ -26,14 +26,24 @@ npm.cmd run build
 - Tailwind/vendor build: **passed**; Browserslist advisory metadata is stale but did not fail the build.
 - Focused storefront/static regression after enabling manifest storage: **27 passed**.
 - Staging-style `check --deploy`: passed with only the intentionally deferred HSTS include-subdomains/preload warnings.
-- Production and staging Blueprints: parsed successfully; all resources resolve to Frankfurt and use isolated names.
+- Earlier local parsing did not prove Render API compatibility. On 2026-07-27 the staging Blueprint was corrected after the current Render specification confirmed that `sync: false` is ignored inside environment groups.
 - Full regression after separating safe staging gates: **501 passed, 1 skipped, 0 failed**.
+
+## Staging provisioning preparation - 2026-07-27
+
+- Eight focused deployment-setting/Blueprint regression tests passed.
+- Complete Django suite: **533 passed, 1 expected SQLite/PostgreSQL row-lock test skipped, 0 failed**.
+- Django checks, migration drift and compilation passed.
+- The Blueprint now uses deterministic HTTPS staging origins, persistent `noeviction` Key Value, schema-gated worker/Beat startup and a one-time approved branch configuration hook.
+- Outbound email, SMS, Sentry and Daraja credentials are intentionally absent from the infrastructure bootstrap and remain later certification gates.
+- No Render resources were created: the Render browser session is signed out, the repository has no Git remote, and no billing confirmation has been presented.
+- Render CLI/API validation remains required after account authentication because it performs schema, semantic-plan and workspace-conflict validation that local text tests cannot replace.
 
 Gunicorn cannot be meaningfully exercised on this Windows development host. Its process lifecycle, graceful shutdown and health-gated routing remain staging acceptance items on Linux.
 
 ## External acceptance still required
 
-- Render CLI/API Blueprint validation and sync; no usable Git remote or authenticated Render session is currently available.
+- Connect a private Git remote with CI, authenticate Render, validate the Blueprint against the selected workspace, review the live cost summary and explicitly approve resource creation.
 - Staging browser journeys and sandbox providers.
 - Continuous uptime plus worker/Beat/database/Redis alerts.
 - Managed PITR restore into an isolated database.

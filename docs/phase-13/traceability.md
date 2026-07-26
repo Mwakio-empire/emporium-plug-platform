@@ -7,9 +7,9 @@
 | Redis secure/persistent broker | Defined; external gate | Private Key Value, `noeviction`, paid plan |
 | Celery worker and Beat | Defined; external gate | Separate Blueprint workers; exactly one Beat service |
 | Static assets | Complete and locally verified | WhiteNoise manifest/compression and successful `collectstatic` |
-| Persistent media | Configuration complete; provider gate | Production requires Cloudinary credentials |
+| Persistent media | Provider gate | Production requires Cloudinary. Initial staging may explicitly use ephemeral media only until item 11; production rejects that escape hatch. |
 | HTTPS/cookies/hosts/CSRF/proxy | Complete at config level | Fail-fast settings and deploy check |
-| Secrets | Defined; external gate | Generated/prompted Blueprint variables; no committed values |
+| Secrets | Defined; external gate | No values are committed. Staging bootstrap disables external integrations; later provider items add secrets directly or through a dashboard-managed secret group, never ignored `sync: false` group entries. |
 | Structured logging/correlation | Complete and verified | JSON formatter, request ID middleware/tests |
 | Sentry PII controls | Complete at config level; external gate | `send_default_pii=False`; DSN/alerts require staging |
 | Health/readiness | Complete and verified | `/health/live/`, `/health/ready/`, dependency failure tests |

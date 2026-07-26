@@ -372,7 +372,20 @@ SECURE_CSP = {
     'font-src': [CSP.SELF, 'data:'],
     'connect-src': [CSP.SELF],
 }
-if not DEBUG and not IS_TESTING and not all(CLOUDINARY_STORAGE.values()):
+STAGING_ALLOW_EPHEMERAL_MEDIA = env.bool(
+    'STAGING_ALLOW_EPHEMERAL_MEDIA',
+    default=False,
+)
+if STAGING_ALLOW_EPHEMERAL_MEDIA and not IS_STAGING:
+    raise ImproperlyConfigured(
+        'STAGING_ALLOW_EPHEMERAL_MEDIA is restricted to the staging environment.'
+    )
+if (
+    not DEBUG
+    and not IS_TESTING
+    and not all(CLOUDINARY_STORAGE.values())
+    and not (IS_STAGING and STAGING_ALLOW_EPHEMERAL_MEDIA)
+):
     raise ImproperlyConfigured(
         'Production/staging requires Cloudinary credentials for persistent catalog images.'
     )
