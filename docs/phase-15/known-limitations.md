@@ -13,8 +13,8 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 
 ## Business configuration
 
-- The local database now identifies its single stocked demo branch as Gaberone Plaza S18 for pickup-flow testing, but it is not the complete official three-branch production dataset.
-- Official OTC name/address, full shop addresses, real staff assignments and pickup slots require controlled configuration.
+- The approved OTC Mall, Gaberone Plaza S18 and Gaberone Plaza B03 records are reproducibly configured by `configure_business_branches`; the command still needs to be run after migrations when each external environment is provisioned.
+- Real staff assignments, opening stock and pickup arrangements require controlled environment-specific onboarding and must not be invented by a seed command.
 - Parcel handoff, arrival and collection records exist for future controlled use, but public automated parcel checkout is intentionally disabled. Launch checkout is S18 pickup only; town parcels are arranged through WhatsApp and must be recorded by staff after the route and final charge are agreed.
 - Pickup working days are Monday-Saturday; Kenyan public holidays are not modelled.
 - WhatsApp assists conversation only; it does not reserve stock or verify payment.

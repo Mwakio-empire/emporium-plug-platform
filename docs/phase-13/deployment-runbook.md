@@ -8,11 +8,12 @@
 4. Keep `PRIVACY_NOTICE_APPROVED` false in staging and use synthetic data only. Production intentionally fails startup until approved controller/privacy details and a real outbound notification provider are configured.
 5. Confirm `DATABASE_URL` is PostgreSQL and `REDIS_URL` uses the private Key Value connection.
 6. Deploy. The web pre-deploy command runs migrations before traffic switches; `/health/ready/` must return 200.
-7. Verify web, worker and Beat logs, static assets, Cloudinary upload and all critical browser journeys.
-8. Configure external uptime monitoring of `/health/live/`; use `/health/ready/` for deployment/readiness decisions.
-9. Configure Sentry release/environment tagging and alerts without PII.
-10. Run load, security, backup/restore and provider sandbox acceptance before production approval.
-11. Scale staging PostgreSQL to Basic-1gb before representative production-capacity testing, then record the tested sizes with the results.
+7. Run `python manage.py configure_business_branches --dry-run`, verify the approved OTC Mall/S18/B03 output, then run `python manage.py configure_business_branches`. Do not seed staff, opening balances or customer data.
+8. Verify web, worker and Beat logs, static assets, Cloudinary upload and all critical browser journeys.
+9. Configure external uptime monitoring of `/health/live/`; use `/health/ready/` for deployment/readiness decisions.
+10. Configure Sentry release/environment tagging and alerts without PII.
+11. Run load, security, backup/restore and provider sandbox acceptance before production approval.
+12. Scale staging PostgreSQL to Basic-1gb before representative production-capacity testing, then record the tested sizes with the results.
 
 ## Routine release
 

@@ -40,11 +40,22 @@ Branch names are not hard-coded. `Branch.receives_supplier_stock` identifies the
 - Compilation: passed.
 - Migrations `branches.0002`, `inventory.0007` and `inventory.0008` applied successfully.
 
-## Configuration still required
+## Approved branch configuration
 
-The current local database contains only a `Smoke Test Branch`; no production branch identities were invented. Before UAT, create the three official branch records, assign staff, and enable `receives_supplier_stock` only on OTC.
+The client confirmed the operational branch data on 2026-07-27:
 
-The client supplied `Gaberone Plaza S18` and `Gaberone Plaza B03`. The exact official OTC branch name/address and the complete street/postal details for both plaza shops must still be confirmed before production data is created.
+| Branch | Location | Supplier intake | Customer pickup |
+|---|---|---:|---:|
+| OTC Mall | Third floor, OTC Mall, Nairobi | Yes | No |
+| Gaberone Plaza S18 | Second floor, Shop S18, Gaberone Plaza, Gaberone Road, Nairobi | No | Yes |
+| Gaberone Plaza B03 | Fifth floor, Shop B03, Gaberone Plaza, Gaberone Road, Nairobi | No | No |
+
+Run `python manage.py configure_business_branches --dry-run` first, review the
+three lines, and then run `python manage.py configure_business_branches`. The
+command is atomic and idempotent. It preserves an existing S18 record, refuses
+placeholder values, refuses unexpected active/demo branches and never deletes a
+branch. Run it separately after migrations in staging and production; staff and
+opening stock are assigned through controlled onboarding rather than seeded.
 
 ## Deferred with justification
 

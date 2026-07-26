@@ -7,7 +7,7 @@ No one may approve release while an unchecked launch blocker remains. Attach evi
 - [ ] Release revision identified; CI and full suite pass.
 - [ ] Checks, migration drift, compilation, dependency consistency and frontend build pass.
 - [ ] PostgreSQL migrations reviewed for locks/runtime/rollback.
-- [ ] Official OTC, S18 and B03 records/addresses/capabilities migrated.
+- [ ] `configure_business_branches --dry-run` reviewed, then official OTC Mall, S18 and B03 records/addresses/capabilities applied and inspected.
 - [ ] Staff roles/branches verified; no shared accounts.
 - [ ] PostgreSQL concurrency and production-sized staging load tests pass.
 

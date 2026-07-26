@@ -12,7 +12,7 @@
 | M-Pesa | STK initiation, callback inbox, exact amount/ID checks, idempotency, polling and reconciliation states | Implemented but externally unverified | Daraja sandbox certification and authorized low-value production test. |
 | Cash/Paybill | POS cash tender/change/shift; controlled manual Paybill verification | Complete and verified locally for approved launch scope | Cashier/manager UAT and real Paybill reconciliation acceptance. Automatic C2B matching is explicitly deferred by Phase 5 ADR-001. |
 | POS accountability | Shift-bound sale, manager discount, receipts, reversal void and variance review | Complete and verified locally | Hardware/fiscal decisions and UAT. |
-| Intake/inventory/transfers | Hub intake, adjustments, counts, transfer custody and low-stock suppression | Complete and verified locally | Configure official branches; PostgreSQL/load and staff UAT. |
+| Intake/inventory/transfers | Hub intake, adjustments, counts, transfer custody, low-stock suppression and idempotent official three-branch configuration | Complete and verified locally | Apply the approved branch command after staging/production migrations; PostgreSQL/load and staff UAT. |
 | Fulfilment | Packing, rider assignment, delivery states, S18 pickup/code/deadline | Complete and verified locally | Rider/customer UAT, carriers/rates, public-holiday decision. |
 | Promotions/reviews/returns | Coupons/flash sales, verified moderated reviews, eligible returns and stock disposition | Complete and verified locally | Refund remains manual; public/legal wording approval. |
 | Reports/reconciliation | Branch-authorized reports, CSV/PDF and explicit schedules | Complete and verified locally | Production-volume reconciliation/load proof and recipient configuration. |

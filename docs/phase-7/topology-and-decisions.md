@@ -7,11 +7,12 @@ SUPPLIER
    |
    | delivery reference + checked intake
    v
-OTC SHOP / RECEIVING HUB
+OTC MALL, THIRD FLOOR / RECEIVING HUB
    |                    |
    | approved transfer  | approved transfer
    v                    v
 GABERONE PLAZA S18   GABERONE PLAZA B03
+SECOND FLOOR         FIFTH FLOOR
 ```
 
 ## Decision: capability, not a hard-coded name
