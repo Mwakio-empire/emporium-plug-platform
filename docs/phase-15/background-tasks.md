@@ -8,7 +8,7 @@ Celery uses Redis in deployed environments. Exactly one Beat process owns schedu
 |---|---|---|---|
 | Every 5 minutes | `orders.cancel_abandoned_pending_orders` | Cancel unpaid STK orders after the configured timeout and release reservations once. | Alert on repeated per-order failures or growing pending backlog. |
 | Hourly at `:00` | `inventory.send_branch_low_stock_alerts` | Detect low-stock transitions and suppress repeated alerts until recovery. | Alert when task is missing for more than two intervals. |
-| Hourly at `:05` | `reports.tasks.dispatch_due_scheduled_reports` | Dispatch only active, configured and due schedules. | Review failed schedule outcomes/manual follow-up. |
+| Hourly at `:05` | `reports.tasks.dispatch_due_scheduled_reports` | Dispatch only active, configured and due schedules. | `PROCESSING` prevents blind duplicate sends; `FAILED` requires manual follow-up. Enable email only after provider certification. |
 | Hourly at `:15` | `orders.send_pickup_reminders` | Send one reminder after 24 hours in ready-for-pickup. | Review queue/provider failure; do not resend blindly. |
 | Hourly at `:45` | `orders.auto_cancel_unresolved_pickups` | Cancel expired pickups and release stock exactly once. | Escalate any stock reversal failure. |
 | Daily 03:00 | `users.purge_unverified_accounts` | Remove inactive, never-verified customer signups older than 24 hours. | Alert if task stops or encounters protected records. |

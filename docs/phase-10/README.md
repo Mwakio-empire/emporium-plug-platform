@@ -22,6 +22,7 @@ The previous unconditional midnight email and invented fallback recipient were r
 - No report marks a manual refund as paid.
 - CSV exports intentionally exclude customer phone, email and payment-provider payloads.
 - Failed scheduled email is recorded for manual follow-up and is not blindly retried. Durable notification retries and provider-level delivery state belong to Phase 11.
+- Current email transport is an opt-in Brevo SMTP configuration. Local behavior is verified, but one controlled [Brevo staging certification](scheduled-email-brevo.md) remains mandatory before production schedules are enabled.
 - PostgreSQL performance/load verification and client UAT remain production gates.
 
 See [business definitions](business-definitions.md), [traceability](traceability.md), [defect register](defect-register.md), and [verification](verification.md).

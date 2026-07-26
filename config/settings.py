@@ -135,6 +135,26 @@ USE_I18N = True
 USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Scheduled operational reports use a separately enabled transactional-email
+# channel. Development defaults to console output and tests to Django's in-memory
+# backend, so ordinary local work cannot contact real recipients.
+REPORT_EMAIL_ENABLED = env.bool('REPORT_EMAIL_ENABLED', default=False)
+EMAIL_BACKEND = env(
+    'EMAIL_BACKEND',
+    default=(
+        'django.core.mail.backends.locmem.EmailBackend'
+        if IS_TESTING else 'django.core.mail.backends.console.EmailBackend'
+    ),
+).strip()
+EMAIL_HOST = env('EMAIL_HOST', default='smtp-relay.brevo.com').strip()
+EMAIL_PORT = env.int('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
+EMAIL_USE_SSL = env.bool('EMAIL_USE_SSL', default=False)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='').strip()
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='').strip()
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=20)
+
 # ----------------------------------------------------------------------
 # STATIC & MEDIA FILES
 # ----------------------------------------------------------------------

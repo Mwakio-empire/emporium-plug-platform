@@ -26,6 +26,7 @@ Date: 2026-07-26
 | Python vulnerability audit | Passed; `pip-audit` found no known vulnerabilities after Pillow 12.3.0 upgrade |
 | Production JavaScript vulnerability audit | Passed; `npm audit --omit=dev` found 0 vulnerabilities |
 | Frontend build | Passed; Browserslist data-age warning only |
-| Full automated suite | 512 run: 511 passed, 1 expected SQLite skip for PostgreSQL row locking |
+| Scheduled-report email | 18 focused tests passed; configuration/render/provider failures and duplicate suppression verified without external delivery |
+| Full automated suite | 519 run: 518 passed, 1 expected SQLite skip for PostgreSQL row locking |
 
 Expected external gates are recorded in the release checklist; they are not silently converted into local passes.

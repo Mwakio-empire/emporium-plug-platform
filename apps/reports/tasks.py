@@ -8,6 +8,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .document_generators import OperationsReportPDFGenerator
+from .email_config import validate_report_email_configuration
 from .models import ScheduledReport, ScheduledReportDelivery
 from .operations_services import OperationsReportService
 
@@ -50,6 +51,24 @@ def dispatch_due_scheduled_reports():
     return len(schedule_ids)
 
 
+def _record_failed_delivery(*, delivery_id, schedule_id, frequency, exception):
+    logger.warning(
+        'Scheduled report delivery failed | schedule_id=%s | exception=%s',
+        schedule_id, type(exception).__name__,
+    )
+    with transaction.atomic():
+        delivery = ScheduledReportDelivery.objects.select_for_update().get(pk=delivery_id)
+        if delivery.status == ScheduledReportDelivery.Status.SENT:
+            return False
+        delivery.status = ScheduledReportDelivery.Status.FAILED
+        delivery.error_summary = type(exception).__name__[:500]
+        delivery.save(update_fields=['status', 'error_summary'])
+        schedule = ScheduledReport.objects.select_for_update().get(pk=schedule_id)
+        schedule.next_run_at = next_run_after(schedule.next_run_at, frequency)
+        schedule.save(update_fields=['next_run_at'])
+    return False
+
+
 @shared_task
 def send_scheduled_report(schedule_id):
     """
@@ -75,47 +94,47 @@ def send_scheduled_report(schedule_id):
             schedule=schedule,
             period_start=period_start,
             period_end=period_end,
-            defaults={'status': ScheduledReportDelivery.Status.FAILED},
+            defaults={'status': ScheduledReportDelivery.Status.PROCESSING},
         )
-        if not created and delivery.status == ScheduledReportDelivery.Status.SENT:
-            schedule.next_run_at = next_run_after(schedule.next_run_at, schedule.frequency)
-            schedule.save(update_fields=['next_run_at'])
-            return True
+        if not created:
+            if delivery.status == ScheduledReportDelivery.Status.SENT:
+                schedule.next_run_at = next_run_after(
+                    schedule.next_run_at, schedule.frequency,
+                )
+                schedule.save(update_fields=['next_run_at'])
+                return True
+            # A PROCESSING outcome may represent an ambiguous provider send;
+            # FAILED requires manual follow-up. Neither is blindly retried.
+            return False
 
-    report = OperationsReportService.compile(
-        start_date=period_start, end_date=period_end, branch=schedule.branch,
-    )
-    pdf = OperationsReportPDFGenerator.compile(report)
-    email = EmailMessage(
-        subject=f'Emporium Plug {schedule.get_frequency_display()} operations report',
-        body=(
-            f"Attached is the configured operations report for {period_start} to {period_end}.\n\n"
-            "Revenue and return definitions are printed inside the report."
-        ),
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[schedule.recipient_email],
-    )
-    email.attach(
-        filename=f'emporium-operations-{period_start}-{period_end}.pdf',
-        content=pdf.getvalue(),
-        mimetype='application/pdf',
-    )
     try:
+        validate_report_email_configuration()
+        report = OperationsReportService.compile(
+            start_date=period_start, end_date=period_end, branch=schedule.branch,
+        )
+        pdf = OperationsReportPDFGenerator.compile(report)
+        email = EmailMessage(
+            subject=f'Emporium Plug {schedule.get_frequency_display()} operations report',
+            body=(
+                f"Attached is the configured operations report for {period_start} to {period_end}.\n\n"
+                "Revenue and return definitions are printed inside the report."
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[schedule.recipient_email],
+        )
+        email.attach(
+            filename=f'emporium-operations-{period_start}-{period_end}.pdf',
+            content=pdf.getvalue(),
+            mimetype='application/pdf',
+        )
         email.send(fail_silently=False)
     except Exception as exc:
-        logger.warning(
-            'Scheduled report delivery failed | schedule_id=%s | exception=%s',
-            schedule_id, type(exc).__name__,
+        return _record_failed_delivery(
+            delivery_id=delivery.pk,
+            schedule_id=schedule_id,
+            frequency=schedule.frequency,
+            exception=exc,
         )
-        with transaction.atomic():
-            delivery = ScheduledReportDelivery.objects.select_for_update().get(pk=delivery.pk)
-            delivery.status = ScheduledReportDelivery.Status.FAILED
-            delivery.error_summary = type(exc).__name__[:500]
-            delivery.save(update_fields=['status', 'error_summary'])
-            schedule = ScheduledReport.objects.select_for_update().get(pk=schedule_id)
-            schedule.next_run_at = next_run_after(schedule.next_run_at, schedule.frequency)
-            schedule.save(update_fields=['next_run_at'])
-        return False
 
     with transaction.atomic():
         delivery = ScheduledReportDelivery.objects.select_for_update().get(pk=delivery.pk)

@@ -150,6 +150,7 @@ class ScheduledReport(models.Model):
 
 class ScheduledReportDelivery(models.Model):
     class Status(models.TextChoices):
+        PROCESSING = 'PROCESSING', 'Processing - Do Not Retry'
         SENT = 'SENT', 'Sent'
         FAILED = 'FAILED', 'Failed - Manual Follow-up Required'
 

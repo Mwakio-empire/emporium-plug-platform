@@ -6,6 +6,7 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 
 - Render staging/production resources have not been provisioned.
 - Daraja and notification providers are verified through mocks/local controls, not complete provider certification.
+- Scheduled-report email is locally failure-safe and configured for Brevo SMTP, but remains disabled until the business domain/sender and staging provider delivery are manually verified.
 - Managed PostgreSQL PITR and the off-site logical archive have not been restored in a controlled host test.
 - Representative PostgreSQL load/concurrency, Nairobi-to-Frankfurt latency, external security and client UAT remain pending.
 - Local SQLite skips one `select_for_update` test and cannot prove row-lock behavior.

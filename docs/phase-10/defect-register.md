@@ -8,4 +8,5 @@
 | P1 | Scheduled PDF was sent unconditionally to all super admins or an invented fallback address | Replaced with explicit recipient schedules |
 | P1 | Existing executive generator used stale completed-only and all-branch assumptions | New scheduled path uses the authoritative operations service |
 | P1 | Failed report delivery had no durable operational record | Added immutable per-period delivery outcome |
+| P0 | Missing sender/backend settings could crash before failure recording, and concurrent tasks could attempt the same report | Added validated opt-in Brevo SMTP configuration, full pre-send failure capture and a non-retriable `PROCESSING` state |
 | P2 | PostgreSQL query performance is not load-tested | Remains a production-engineering gate |

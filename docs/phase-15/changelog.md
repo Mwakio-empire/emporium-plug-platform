@@ -28,6 +28,7 @@
 - Callback inbox, duplicate/unknown handling, exact settlement and release-once semantics.
 - Pillow upgraded from 12.2.0 to 12.3.0 to resolve the vulnerabilities reported by the dependency audit.
 - Established an isolated project Git repository on `main`; local secrets, databases, uploads, generated output and dependency directories are excluded from version control.
+- Scheduled-report email now has validated opt-in Brevo SMTP settings, records configuration/render/provider failures, and prevents blind duplicate sends with a `PROCESSING` delivery state.
 
 ### Not externally verified
 

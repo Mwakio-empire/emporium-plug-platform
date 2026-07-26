@@ -42,6 +42,21 @@ Use `.env.example` as the safe copyable template. Real values belong in the depl
 | `WHATSAPP_FALLBACK_ENABLED` | Allows only the event allow-list | Requires business/legal approval and valid provider configuration. |
 | `WHATSAPP_API_URL` / `WHATSAPP_BEARER_TOKEN` | WhatsApp provider endpoint/secret | Secrets must not appear in logs. |
 
+## Scheduled-report email
+
+| Variable | Purpose | Safety rule |
+|---|---|---|
+| `REPORT_EMAIL_ENABLED` | Enables scheduled operational-report email | Defaults false. Enable only after staging provider certification. |
+| `EMAIL_BACKEND` | Django email transport | Use the SMTP backend for Brevo; console locally and in-memory in tests. |
+| `EMAIL_HOST` / `EMAIL_PORT` | Brevo relay endpoint | `smtp-relay.brevo.com` on port `587`. |
+| `EMAIL_USE_TLS` / `EMAIL_USE_SSL` | Transport encryption | TLS is enabled for port 587; TLS and SSL cannot both be true. |
+| `EMAIL_HOST_USER` | Brevo SMTP login | Use the SMTP login shown by Brevo, not the relay hostname. |
+| `EMAIL_HOST_PASSWORD` | Brevo SMTP key | Secret; do not use an API key, account password, source file, log or screenshot. |
+| `DEFAULT_FROM_EMAIL` | Verified transactional sender | Must be a valid sender on the authenticated business domain. |
+| `EMAIL_TIMEOUT` | Bounded SMTP connection/send timeout | Defaults to 20 seconds. |
+
+Follow the [Brevo scheduled-email certification runbook](../phase-10/scheduled-email-brevo.md) before enabling production schedules.
+
 ## M-Pesa
 
 | Variable | Purpose |

@@ -1,7 +1,7 @@
 from datetime import timedelta
 from decimal import Decimal
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.core import mail
 from django.urls import reverse
 from django.utils import timezone
@@ -13,10 +13,17 @@ from inventory.models import Stock
 from orders.models import Order, OrderItem, OrderStatusHistory
 from reports.models import ScheduledReport, ScheduledReportDelivery
 from reports.operations_services import OperationsReportService
-from reports.tasks import dispatch_due_scheduled_reports, send_scheduled_report
+from reports.checks import report_email_configuration_check
+from reports.tasks import (
+    dispatch_due_scheduled_reports, report_period, send_scheduled_report,
+)
 from users.models import User
 
 
+@override_settings(
+    REPORT_EMAIL_ENABLED=True,
+    DEFAULT_FROM_EMAIL='reports@emporiumplug.example',
+)
 class Phase10ReportTests(TestCase):
     def setUp(self):
         self.branch = Branch.objects.create(name='S18 Report Branch', location='Nairobi')
@@ -195,6 +202,79 @@ class Phase10ReportTests(TestCase):
         self.assertEqual(delivery.error_summary, 'RuntimeError')
         schedule.refresh_from_db()
         self.assertGreater(schedule.next_run_at, timezone.now())
+
+        # Even if an operator mistakenly makes the same period due again, the
+        # retained FAILED outcome prevents an ambiguous duplicate send.
+        schedule.next_run_at = timezone.now() - timedelta(minutes=1)
+        schedule.save(update_fields=['next_run_at'])
+        self.assertFalse(send_scheduled_report(schedule.pk))
+        self.assertEqual(mocked_send.call_count, 1)
+
+    @override_settings(REPORT_EMAIL_ENABLED=False)
+    def test_disabled_report_email_is_recorded_before_render_or_send(self):
+        schedule = self.schedule()
+        with patch('reports.tasks.OperationsReportService.compile') as compile_report:
+            self.assertFalse(send_scheduled_report(schedule.pk))
+        compile_report.assert_not_called()
+        delivery = ScheduledReportDelivery.objects.get(schedule=schedule)
+        self.assertEqual(delivery.status, ScheduledReportDelivery.Status.FAILED)
+        self.assertEqual(delivery.error_summary, 'ImproperlyConfigured')
+        self.assertEqual(len(mail.outbox), 0)
+
+    @override_settings(DEFAULT_FROM_EMAIL='')
+    def test_missing_sender_is_recorded_instead_of_crashing_task(self):
+        schedule = self.schedule()
+        self.assertFalse(send_scheduled_report(schedule.pk))
+        delivery = ScheduledReportDelivery.objects.get(schedule=schedule)
+        self.assertEqual(delivery.status, ScheduledReportDelivery.Status.FAILED)
+        self.assertEqual(delivery.error_summary, 'ImproperlyConfigured')
+
+    @patch(
+        'reports.tasks.OperationsReportPDFGenerator.compile',
+        side_effect=RuntimeError('render unavailable'),
+    )
+    def test_pre_send_report_failure_is_recorded(self, mocked_compile):
+        schedule = self.schedule()
+        self.assertFalse(send_scheduled_report(schedule.pk))
+        delivery = ScheduledReportDelivery.objects.get(schedule=schedule)
+        self.assertEqual(delivery.status, ScheduledReportDelivery.Status.FAILED)
+        self.assertEqual(delivery.error_summary, 'RuntimeError')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_existing_processing_delivery_is_not_sent_again(self):
+        schedule = self.schedule()
+        period_start, period_end = report_period(
+            schedule.frequency, timezone.localdate(),
+        )
+        ScheduledReportDelivery.objects.create(
+            schedule=schedule,
+            period_start=period_start,
+            period_end=period_end,
+            status=ScheduledReportDelivery.Status.PROCESSING,
+        )
+        with patch('reports.tasks.EmailMessage.send') as mocked_send:
+            self.assertFalse(send_scheduled_report(schedule.pk))
+        mocked_send.assert_not_called()
+
+    @override_settings(DEFAULT_FROM_EMAIL='')
+    def test_email_configuration_check_reports_invalid_enabled_channel(self):
+        errors = report_email_configuration_check(None)
+        self.assertEqual([error.id for error in errors], ['reports.E001'])
+
+    @override_settings(
+        EMAIL_BACKEND='django.core.mail.backends.smtp.EmailBackend',
+        EMAIL_HOST='smtp-relay.brevo.com',
+        EMAIL_HOST_USER='smtp-login@example.test',
+        EMAIL_HOST_PASSWORD='',
+    )
+    def test_email_configuration_check_rejects_missing_smtp_secret(self):
+        errors = report_email_configuration_check(None)
+        self.assertEqual([error.id for error in errors], ['reports.E001'])
+
+    @override_settings(EMAIL_USE_TLS=True, EMAIL_USE_SSL=True)
+    def test_email_configuration_check_rejects_conflicting_encryption(self):
+        errors = report_email_configuration_check(None)
+        self.assertEqual([error.id for error in errors], ['reports.E001'])
 
     @patch('reports.tasks.send_scheduled_report.delay')
     def test_dispatcher_queues_only_due_active_schedules(self, mocked_delay):
