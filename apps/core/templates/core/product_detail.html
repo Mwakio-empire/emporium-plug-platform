@@ -1,0 +1,256 @@
+{% extends 'base.html' %}
+{% load catalog_extras %}
+{% block title %}{{ product.name }} | Emporium Plug{% endblock %}
+{% block meta_description %}{{ meta_description }}{% endblock %}
+{% block canonical_url %}{{ canonical_url }}{% endblock %}
+{% block extra_head %}<script type="application/ld+json" nonce="{{ csp_nonce }}">{{ product_schema|json_ld }}</script>{% endblock %}
+{% block content %}
+<div hx-get="{% url 'core:cart_action_gateway' %}" hx-trigger="load" hx-target="#cart-drawer-target">
+<nav class="text-xs text-gray-400 mb-4">
+    <a href="/" class="hover:text-brand-600">Home</a> /
+    <span>{{ product.category.name }}</span> / <span class="text-gray-700">{{ product.name }}</span>
+</nav>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-10 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+    <div>
+        {% with first_gallery=product.gallery_images.first %}
+        {% if product.image or first_gallery %}
+        <img id="main-product-image" src="{% if product.image %}{{ product.image.url }}{% else %}{{ first_gallery.image.url }}{% endif %}"
+             alt="{% if product.image %}{{ product.name }}{% else %}{{ first_gallery.alt_text }}{% endif %}"
+             class="w-full rounded-xl object-cover aspect-square">
+        {% else %}
+        <div class="w-full aspect-square rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 text-sm">Image unavailable</div>
+        {% endif %}
+        {% endwith %}
+        {% if product.image or product.gallery_images.all %}
+        <div class="mt-3 grid grid-cols-5 gap-2" aria-label="Product images">
+            {% if product.image %}<button type="button" class="product-image-option border rounded-lg overflow-hidden" data-image-url="{{ product.image.url }}" data-image-alt="{{ product.name }}"><img src="{{ product.image.url }}" alt="{{ product.name }}" class="aspect-square object-cover"></button>{% endif %}
+            {% for gallery_image in product.gallery_images.all %}
+            <button type="button" class="product-image-option border rounded-lg overflow-hidden" data-image-url="{{ gallery_image.image.url }}" data-image-alt="{{ gallery_image.alt_text }}">
+                <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text }}" loading="lazy" class="aspect-square object-cover">
+            </button>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="space-y-4">
+        <span class="text-[10px] font-mono font-bold tracking-wider text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full uppercase">{{ product.category.name }}</span>
+        <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ product.name }}</h1>
+
+        {% if average_rating %}
+        <div class="flex items-center gap-1 text-sm text-amber-500">
+            {% for i in "12345" %}★{% endfor %}
+            <span class="text-gray-500 text-xs ml-1">{{ average_rating }} / 5 ({{ reviews|length }} review{{ reviews|length|pluralize }})</span>
+        </div>
+        {% endif %}
+
+        {% if has_variants %}
+        <div id="variant-picker" class="space-y-2">
+            <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Choose an option</p>
+            <div class="flex flex-wrap gap-2">
+                {% for vd in variant_data %}
+                <button type="button"
+                        class="variant-option border rounded-lg px-3 py-2 text-xs font-semibold transition
+                               {% if not forloop.first %}border-gray-200 text-gray-600{% else %}border-brand-600 bg-brand-50 text-brand-700{% endif %}
+                               {% if vd.stock == 0 %}opacity-40 cursor-not-allowed{% endif %}"
+                        {% if vd.stock > 0 %}data-variant-select{% else %}disabled{% endif %}
+                        data-variant-id="{{ vd.variant.id }}"
+                        data-price="{{ vd.price }}"
+                        data-stock="{{ vd.stock }}"
+                        data-flash-end="{% if vd.flash_sale %}{{ vd.flash_sale.end_time|date:'c' }}{% endif %}">
+                    {{ vd.variant.attribute_name }}: {{ vd.variant.attribute_value }}
+                    {% if vd.stock == 0 %} (Sold out){% endif %}
+                </button>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flex items-baseline gap-3">
+            <span id="display-price" class="text-2xl font-black text-slate-900">
+                KES {% if has_variants %}{{ variant_data.0.price }}{% else %}{{ product.price }}{% endif %}
+            </span>
+            {% if not has_variants and on_sale %}
+            <span class="text-sm text-gray-400 line-through">KES {{ product.compare_at_price }}</span>
+            {% endif %}
+        </div>
+
+        <div id="flash-countdown" class="{% if not has_variants or not variant_data.0.flash_sale %}hidden{% endif %} text-xs font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-lg px-3 py-2 inline-block">
+            ⚡ Sale ends in <span id="countdown-text">--:--:--</span>
+        </div>
+
+        <p id="stock-note" class="text-xs {% if in_stock %}text-emerald-600{% else %}text-rose-600{% endif %} font-semibold">
+            {% if in_stock %}In stock and ready to order{% else %}Currently out of stock{% endif %}
+        </p>
+
+        <p class="text-sm text-gray-600 leading-relaxed">{{ product.description|default:"No description available for this product yet." }}</p>
+
+        <p class="rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
+            {% if product.customer_return_policy == 'SEVEN_DAY' %}
+            Return requests may be submitted within 7 calendar days after delivery or collection, subject to inspection.
+            {% else %}
+            This item is handled through customer support for wrong or defective-item concerns; online return requests are not available.
+            {% endif %}
+        </p>
+
+        {% if product.specifications or product.weight or product.dimensions %}
+        <section aria-labelledby="specifications-heading" class="border-t pt-4">
+            <h2 id="specifications-heading" class="text-sm font-bold text-slate-900">Specifications</h2>
+            <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                {% if product.weight %}<div><dt class="text-gray-500">Weight</dt><dd class="font-semibold">{{ product.weight }} kg</dd></div>{% endif %}
+                {% if product.dimensions %}<div><dt class="text-gray-500">Dimensions</dt><dd class="font-semibold">{{ product.dimensions }}</dd></div>{% endif %}
+                {% for name, value in product.specifications.items %}<div><dt class="text-gray-500">{{ name }}</dt><dd class="font-semibold">{{ value }}</dd></div>{% endfor %}
+            </dl>
+        </section>
+        {% endif %}
+
+        <form hx-post="{% url 'core:cart_action_gateway' %}" hx-target="#cart-drawer-target" class="pt-2">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            {% if has_variants %}
+            <input type="hidden" id="selected-variant-id" name="variant_id" value="{{ variant_data.0.variant.id }}">
+            {% else %}
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            {% endif %}
+            <label for="product-quantity" class="block text-sm font-bold text-gray-700 mb-1">Quantity</label>
+            <input id="product-quantity" name="quantity" type="number" min="1"
+                   max="{% if has_variants %}{{ variant_data.0.stock|default:1 }}{% else %}{{ direct_stock|default:1 }}{% endif %}" value="1"
+                   class="w-24 border border-gray-300 rounded-lg px-3 py-2 mb-3" {% if not in_stock %}disabled{% endif %}>
+            <button type="submit" id="add-to-bag-btn"
+                    data-cart-open-on-htmx
+                    {% if not in_stock %}disabled{% endif %}
+                    class="w-full sm:w-auto bg-slate-900 hover:bg-brand-600 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed text-white font-bold text-sm px-8 py-3 rounded-xl transition shadow-sm">
+                {% if in_stock %}Add to cart{% else %}Out of stock{% endif %}
+            </button>
+        </form>
+    </div>
+</div>
+
+<div class="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
+    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Customer Reviews</h3>
+    {% if can_review %}
+    <form method="post" action="{% url 'marketing:customer-review-create' product.id %}" class="mb-6 grid gap-3 rounded-xl bg-brand-50 p-4 sm:grid-cols-[8rem_1fr_auto] sm:items-end">
+        {% csrf_token %}
+        <label class="text-sm font-semibold">Rating<select name="rating" required class="mt-1 w-full rounded-lg border-gray-300"><option value="5">5 - Excellent</option><option value="4">4 - Good</option><option value="3">3 - Average</option><option value="2">2 - Poor</option><option value="1">1 - Very poor</option></select></label>
+        <label class="text-sm font-semibold">Your review<textarea name="comment" required minlength="5" maxlength="2000" rows="2" class="mt-1 w-full rounded-lg border-gray-300" placeholder="Describe your experience with this product"></textarea></label>
+        <button class="rounded-lg bg-slate-900 px-5 py-2 font-bold text-white hover:bg-brand-600">Submit review</button>
+    </form>
+    {% elif review_submitted %}<p class="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">You have already submitted a review for this product.</p>{% endif %}
+    {% if reviews %}
+    <div class="space-y-4">
+        {% for r in reviews %}
+        <div class="border-b border-gray-100 pb-3 last:border-0">
+            <div class="flex items-center gap-2">
+                <span class="text-amber-500 text-xs">{% for i in r.rating|ljust:5 %}★{% endfor %}</span>
+                <span class="text-xs font-semibold text-gray-700">{{ r.customer.first_name|default:"Customer" }}</span>
+                {% if r.is_verified_purchase %}<span class="text-[10px] text-emerald-600 font-bold">Verified Purchase</span>{% endif %}
+            </div>
+            <p class="text-sm text-gray-600 mt-1">{{ r.comment }}</p>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}<p class="text-sm text-gray-500">No approved reviews yet.</p>{% endif %}
+</div>
+
+{% if related_products %}
+<div class="mt-8">
+    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">You may also like</h3>
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {% for rp in related_products %}
+        <a href="{% url 'core:product_detail' rp.slug %}" class="bg-white border border-gray-100 rounded-xl p-3 hover:shadow-md transition block">
+            <p class="text-xs font-bold text-slate-900 truncate">{{ rp.name }}</p>
+            <p class="text-xs text-brand-600 font-bold mt-1">KES {{ rp.price }}</p>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+</div>
+
+<div id="shopping-cart-drawer-panel" role="dialog" aria-modal="true" aria-label="Shopping cart" aria-hidden="true" inert hidden class="fixed inset-y-0 right-0 w-full max-w-md bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 border-l border-gray-200 flex flex-col">
+    <div class="p-4 bg-slate-900 text-white flex items-center justify-between">
+        <h3 class="font-bold text-sm tracking-tight">Your Bag</h3>
+        <button id="product-cart-close" type="button" data-cart-close class="text-xs hover:text-brand-400 font-bold uppercase tracking-wider transition">Close</button>
+    </div>
+    <div id="cart-drawer-target" class="flex-1 overflow-y-auto p-4">{% include 'core/partials/cart_drawer_content.html' %}</div>
+</div>
+
+{% comment %}
+let productCartReturnFocus = null;
+function openProductCart(trigger) {
+    const drawer = document.getElementById('shopping-cart-drawer-panel');
+    productCartReturnFocus = trigger || document.activeElement;
+    drawer.hidden = false;
+    drawer.classList.remove('translate-x-full');
+    drawer.setAttribute('aria-hidden', 'false');
+    drawer.removeAttribute('inert');
+    document.getElementById('product-cart-close').focus();
+}
+function closeProductCart() {
+    const drawer = document.getElementById('shopping-cart-drawer-panel');
+    drawer.classList.add('translate-x-full');
+    drawer.setAttribute('aria-hidden', 'true');
+    drawer.setAttribute('inert', '');
+    drawer.hidden = true;
+    if (productCartReturnFocus) productCartReturnFocus.focus();
+}
+document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && document.getElementById('shopping-cart-drawer-panel').getAttribute('aria-hidden') === 'false') closeProductCart();
+});
+function changeProductImage(url, altText) {
+    const image = document.getElementById('main-product-image');
+    if (image) { image.src = url; image.alt = altText; }
+}
+function selectVariant(el) {
+    document.querySelectorAll('.variant-option').forEach(o => {
+        o.classList.remove('border-brand-600', 'bg-brand-50', 'text-brand-700');
+        o.classList.add('border-gray-200', 'text-gray-600');
+    });
+    el.classList.add('border-brand-600', 'bg-brand-50', 'text-brand-700');
+    el.classList.remove('border-gray-200', 'text-gray-600');
+    document.getElementById('selected-variant-id').value = el.dataset.variantId;
+    document.getElementById('display-price').textContent = 'KES ' + el.dataset.price;
+    const stock = parseInt(el.dataset.stock, 10);
+    const stockNote = document.getElementById('stock-note');
+    const btn = document.getElementById('add-to-bag-btn');
+    const quantity = document.getElementById('product-quantity');
+    quantity.max = stock;
+    if (parseInt(quantity.value, 10) > stock) quantity.value = stock || 1;
+    if (stock > 0) {
+        stockNote.textContent = '✓ In stock and ready to ship';
+        stockNote.className = 'text-xs text-emerald-600 font-semibold';
+        btn.disabled = false;
+        btn.textContent = 'Add to cart';
+    } else {
+        stockNote.textContent = 'Currently out of stock';
+        stockNote.className = 'text-xs text-rose-600 font-semibold';
+        btn.disabled = true;
+        btn.textContent = 'Out of Stock';
+    }
+    updateCountdown(el.dataset.flashEnd);
+}
+let countdownTimer = null;
+function updateCountdown(endIso) {
+    const box = document.getElementById('flash-countdown');
+    if (countdownTimer) clearInterval(countdownTimer);
+    if (!endIso) { box.classList.add('hidden'); return; }
+    box.classList.remove('hidden');
+    const endTime = new Date(endIso).getTime();
+    function tick() {
+        const diff = endTime - Date.now();
+        if (diff <= 0) { box.classList.add('hidden'); clearInterval(countdownTimer); return; }
+        const h = String(Math.floor(diff / 3600000)).padStart(2, '0');
+        const m = String(Math.floor((diff % 3600000) / 60000)).padStart(2, '0');
+        const s = String(Math.floor((diff % 60000) / 1000)).padStart(2, '0');
+        document.getElementById('countdown-text').textContent = `${h}:${m}:${s}`;
+    }
+    tick();
+    countdownTimer = setInterval(tick, 1000);
+}
+document.addEventListener('DOMContentLoaded', () => {
+    const firstOption = document.querySelector('.variant-option:not([disabled])');
+    if (firstOption) updateCountdown(firstOption.dataset.flashEnd);
+});
+</script>
+{% endcomment %}
+{% endblock %}
+{% block extra_js %}{% load static %}<script src="{% static 'core/product_detail.js' %}" defer></script>{% endblock %}

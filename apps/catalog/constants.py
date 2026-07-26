@@ -1,0 +1,1 @@
+STOREFRONT_SELECTED_BRANCH_KEY = 'dnt_storefront_branch_id'

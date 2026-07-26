@@ -1,0 +1,11 @@
+{
+  "name": "dynamic-retail-system-assets",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss -c tailwind.config.cjs -i static_src/tailwind.css -o static/core/storefront.css --minify",
+    "build:vendor": "node scripts/build-vendor-assets.mjs",
+    "build": "npm run build:css && npm run build:vendor"
+  },
+  "devDependencies": { "tailwindcss": "3.4.17" },
+  "dependencies": { "htmx.org": "1.9.12" }
+}

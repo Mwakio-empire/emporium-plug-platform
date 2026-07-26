@@ -1,0 +1,153 @@
+{% extends 'base.html' %}
+
+{% block title %}Inventory workspace - Emporium Plug{% endblock %}
+{% block meta_description %}Manage supplier intake, branch transfers, stock adjustments and counts.{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <header class="rounded-2xl bg-slate-950 px-6 py-6 text-white shadow-lg">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div>
+        <p class="text-xs font-bold uppercase tracking-[0.2em] text-orange-400">Stock control</p>
+        <h1 class="mt-2 text-3xl font-black">Inventory workspace</h1>
+        {% if active_branch %}
+          <p class="mt-2 text-sm text-slate-300">Working branch: <strong class="text-white">{{ active_branch.name }}</strong></p>
+        {% else %}
+          <p class="mt-2 text-sm text-rose-300">No active branch is available.</p>
+        {% endif %}
+      </div>
+      {% if user.role == 'SUPER_ADMIN' %}
+      <form method="get" class="flex items-end gap-2">
+        <label class="text-xs font-semibold text-slate-300">View branch
+          <select name="branch" class="mt-1 block rounded-lg border-slate-700 bg-slate-900 px-3 py-2 text-sm text-white">
+            {% for branch in branches %}
+              <option value="{{ branch.pk }}" {% if active_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button class="rounded-lg bg-orange-500 px-4 py-2 text-sm font-bold text-slate-950">Switch</button>
+      </form>
+      {% endif %}
+    </div>
+    <p class="mt-5 max-w-3xl text-sm text-slate-300">
+      Supplier deliveries enter through the configured OTC receiving hub. Transfers remain in transit until the receiving shop confirms each parcel.
+    </p>
+  </header>
+
+  {% if active_branch %}
+  <section class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4" aria-label="Inventory summary">
+    <div class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Stock records</p><p class="mt-2 text-3xl font-black">{{ stocks|length }}</p></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Recent transfers</p><p class="mt-2 text-3xl font-black">{{ transfers|length }}</p></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Recent deliveries</p><p class="mt-2 text-3xl font-black">{{ intakes|length }}</p></div>
+    <div class="rounded-xl border border-slate-200 bg-white p-4"><p class="text-xs font-bold uppercase text-slate-500">Supplier receiving</p><p class="mt-2 text-lg font-black {% if active_branch.receives_supplier_stock %}text-emerald-700{% else %}text-slate-500{% endif %}">{% if active_branch.receives_supplier_stock %}Enabled{% else %}Not enabled{% endif %}</p></div>
+  </section>
+
+  <section class="grid gap-6 xl:grid-cols-2">
+    {% if active_branch.receives_supplier_stock %}
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-black">Record supplier delivery</h2>
+      <p class="mt-1 text-sm text-slate-500">Use the supplier's unique delivery-note reference. Reusing the same reference will not add stock twice.</p>
+      <form method="post" action="{% url 'inventory:workspace-intake' %}" class="mt-4 space-y-3" data-testid="supplier-intake-form">
+        {% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="text-sm font-semibold">Supplier name<input name="supplier_name" required class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></label>
+          <label class="text-sm font-semibold">Delivery reference<input name="delivery_reference" required class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></label>
+        </div>
+        <div id="intake-lines" class="space-y-2">
+          <div class="intake-line grid grid-cols-[1fr_7rem] gap-2">
+            <label class="text-xs font-semibold">Item<select name="item" required class="mt-1 w-full rounded-lg border-gray-300 px-2 py-2"><option value="">Select item</option>{% for value,label in catalog_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+            <label class="text-xs font-semibold">Quantity<input type="number" name="quantity" min="1" required class="mt-1 w-full rounded-lg border-gray-300 px-2 py-2"></label>
+          </div>
+        </div>
+        <button type="button" id="add-intake-line" class="text-sm font-bold text-blue-700 underline">Add another item</button>
+        <label class="block text-sm font-semibold">Delivery notes<textarea name="notes" rows="2" class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></textarea></label>
+        <button class="w-full rounded-lg bg-emerald-600 px-4 py-3 font-bold text-white hover:bg-emerald-700">Receive supplier stock</button>
+      </form>
+    </div>
+    {% endif %}
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-black">Request branch transfer</h2>
+      <p class="mt-1 text-sm text-slate-500">The source branch must approve before stock can be dispatched.</p>
+      <form method="post" action="{% url 'inventory:workspace-transfer-request' %}" class="mt-4 space-y-3" data-testid="transfer-request-form">
+        {% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}">
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="text-sm font-semibold">From branch<select name="from_branch" required class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2">{% for branch in branches %}<option value="{{ branch.pk }}" {% if branch.pk == active_branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}</select></label>
+          <label class="text-sm font-semibold">To branch<select name="to_branch" required class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2">{% for branch in branches %}<option value="{{ branch.pk }}" {% if branch.pk == active_branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}</select></label>
+        </div>
+        <label class="block text-sm font-semibold">Item<select name="item" required class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"><option value="">Select item</option>{% for value,label in catalog_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+        <label class="block text-sm font-semibold">Quantity<input type="number" name="quantity" min="1" required class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></label>
+        <label class="block text-sm font-semibold">Reason or notes<textarea name="notes" rows="2" class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></textarea></label>
+        <button class="w-full rounded-lg bg-blue-700 px-4 py-3 font-bold text-white hover:bg-blue-800">Create transfer request</button>
+      </form>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-black">Record adjustment</h2>
+      <p class="mt-1 text-sm text-slate-500">Use a negative amount for damage or theft. Damage moves to quarantine rather than disappearing.</p>
+      <form method="post" action="{% url 'inventory:workspace-adjustment' %}" class="mt-4 space-y-3">
+        {% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}">
+        <label class="block text-sm font-semibold">Item<select name="item" required class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"><option value="">Select item</option>{% for value,label in catalog_choices %}<option value="{{ value }}">{{ label }}</option>{% endfor %}</select></label>
+        <div class="grid gap-3 sm:grid-cols-2">
+          <label class="text-sm font-semibold">Reason<select name="reason" class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"><option value="CORRECTION">Count correction</option><option value="DAMAGE">Damaged</option><option value="THEFT">Missing or theft</option></select></label>
+          <label class="text-sm font-semibold">Stock change<input type="number" name="change_amount" required placeholder="e.g. -2 or 3" class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></label>
+        </div>
+        <label class="block text-sm font-semibold">Reference<input name="reference_number" required placeholder="Incident or count reference" class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></label>
+        <label class="block text-sm font-semibold">Explanation<textarea name="note" required rows="2" class="mt-1 w-full rounded-lg border-gray-300 px-3 py-2"></textarea></label>
+        <button class="w-full rounded-lg bg-slate-900 px-4 py-3 font-bold text-white">Record adjustment</button>
+      </form>
+    </div>
+
+    <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <h2 class="text-lg font-black">Cycle or spot count</h2>
+      {% if open_count %}
+        <p class="mt-1 text-sm text-amber-700">Count #{{ open_count.pk }} is open. Enter the physical quantity for every line.</p>
+        <form method="post" action="{% url 'inventory:workspace-count-complete' open_count.pk %}" class="mt-4 space-y-2" data-testid="stock-count-form">
+          {% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}">
+          {% for line in open_count.lines.all %}
+          <label class="grid grid-cols-[1fr_7rem] items-end gap-2 rounded-lg bg-slate-50 p-2 text-sm"><span><strong>{{ line.variant|default:line.product }}</strong><br><span class="text-xs text-slate-500">System quantity: {{ line.expected_quantity }}</span></span><input aria-label="Counted quantity for {{ line.variant|default:line.product }}" type="number" name="line_{{ line.pk }}" min="0" required value="{{ line.counted_quantity|default_if_none:'' }}" class="rounded-lg border-gray-300 px-2 py-2"></label>
+          {% endfor %}
+          <button class="mt-2 w-full rounded-lg bg-emerald-600 px-4 py-3 font-bold text-white">Complete count and apply differences</button>
+        </form>
+        <form method="post" action="{% url 'inventory:workspace-count-cancel' open_count.pk %}" class="mt-3 flex gap-2">
+          {% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}"><input name="reason" required placeholder="Reason for cancelling" class="min-w-0 flex-1 rounded-lg border-gray-300 px-3 py-2 text-sm"><button class="rounded-lg border border-rose-300 px-3 py-2 text-sm font-bold text-rose-700">Cancel count</button>
+        </form>
+      {% else %}
+        <p class="mt-1 text-sm text-slate-500">Start a count of all current stock records at this branch. Sales or stock movements after the start will force a restart.</p>
+        <form method="post" action="{% url 'inventory:workspace-count-start' %}" class="mt-4 space-y-3">
+          {% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}"><textarea name="notes" rows="2" placeholder="Count notes (optional)" class="w-full rounded-lg border-gray-300 px-3 py-2"></textarea><button class="w-full rounded-lg bg-orange-500 px-4 py-3 font-bold text-slate-950">Start branch stock count</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-200 p-5"><h2 class="text-lg font-black">Current branch stock</h2></div>
+    <div class="overflow-x-auto"><table class="w-full text-left text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500"><tr><th class="p-3">Item</th><th class="p-3 text-right">On hand</th><th class="p-3 text-right">Reserved</th><th class="p-3 text-right">Available</th><th class="p-3 text-right">In transit</th><th class="p-3 text-right">Damaged</th></tr></thead><tbody class="divide-y">{% for stock in stocks %}<tr><td class="p-3 font-semibold">{{ stock.variant|default:stock.product }}</td><td class="p-3 text-right">{{ stock.quantity }}</td><td class="p-3 text-right">{{ stock.reserved_quantity }}</td><td class="p-3 text-right font-bold {% if stock.available_quantity <= 5 %}text-rose-700{% endif %}">{{ stock.available_quantity }}</td><td class="p-3 text-right">{{ stock.in_transit_quantity }}</td><td class="p-3 text-right">{{ stock.damaged_quantity }}</td></tr>{% empty %}<tr><td colspan="6" class="p-8 text-center text-slate-500">No stock records at this branch yet.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div class="border-b border-slate-200 p-5"><h2 class="text-lg font-black">Transfer activity</h2></div>
+    <div class="divide-y divide-slate-100">
+      {% for transfer in transfers %}
+      <article class="grid gap-3 p-4 lg:grid-cols-[1fr_auto] lg:items-center">
+        <div><p class="font-bold">#{{ transfer.pk }} · {{ transfer.variant|default:transfer.product }}</p><p class="text-sm text-slate-600">{{ transfer.from_branch.name }} → {{ transfer.to_branch.name }} · {{ transfer.quantity }} units · {{ transfer.get_status_display }}</p><p class="mt-1 text-xs text-slate-500">Received {{ transfer.received_quantity }} · Remaining {{ transfer.remaining_quantity }}</p></div>
+        <div class="flex flex-wrap gap-2">
+          {% if transfer.status == 'PENDING' %}
+            {% if user.role == 'SUPER_ADMIN' or user.branch_id == transfer.from_branch_id %}<form method="post" action="{% url 'inventory:workspace-transfer-approve' transfer.pk %}">{% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}"><button class="rounded bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Approve</button></form><form method="post" action="{% url 'inventory:workspace-transfer-reject' transfer.pk %}" class="flex gap-1">{% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}"><input name="reason" required placeholder="Rejection reason" class="w-36 rounded border-gray-300 px-2 text-xs"><button class="rounded border border-rose-300 px-3 py-2 text-xs font-bold text-rose-700">Reject</button></form>{% endif %}
+          {% endif %}
+          {% if transfer.status == 'APPROVED' %}{% if user.role == 'SUPER_ADMIN' or user.branch_id == transfer.from_branch_id %}<form method="post" action="{% url 'inventory:workspace-transfer-dispatch' transfer.pk %}">{% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}"><button class="rounded bg-blue-700 px-3 py-2 text-xs font-bold text-white">Dispatch</button></form>{% endif %}{% endif %}
+          {% if transfer.status == 'DISPATCHED' or transfer.status == 'PARTIALLY_RECEIVED' %}{% if user.role == 'SUPER_ADMIN' or user.branch_id == transfer.to_branch_id %}<form method="post" action="{% url 'inventory:workspace-transfer-receive' transfer.pk %}" class="flex gap-1">{% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}"><input type="number" name="quantity" min="1" max="{{ transfer.remaining_quantity }}" required aria-label="Receipt quantity" placeholder="Qty" class="w-20 rounded border-gray-300 px-2 text-xs"><input name="note" aria-label="Receipt note" placeholder="Receipt note" class="w-32 rounded border-gray-300 px-2 text-xs"><button class="rounded bg-emerald-600 px-3 py-2 text-xs font-bold text-white">Receive</button></form>{% endif %}{% endif %}
+          {% if transfer.status == 'PENDING' or transfer.status == 'APPROVED' %}<form method="post" action="{% url 'inventory:workspace-transfer-cancel' transfer.pk %}" class="flex gap-1">{% csrf_token %}<input type="hidden" name="workspace_branch" value="{{ active_branch.pk }}"><input name="reason" required placeholder="Cancellation reason" class="w-36 rounded border-gray-300 px-2 text-xs"><button class="rounded border border-slate-300 px-3 py-2 text-xs font-bold">Cancel</button></form>{% endif %}
+        </div>
+      </article>
+      {% empty %}<p class="p-8 text-center text-sm text-slate-500">No transfers involve this branch yet.</p>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% load static %}<script src="{% static 'inventory/workspace.js' %}" defer></script>
+{% endblock %}

@@ -1,0 +1,134 @@
+{% extends 'base.html' %}
+
+{% block title %}Point of Sale - EmporiumPlug{% endblock %}
+
+{% block content %}
+{% if configuration_error %}
+<div class="rounded-md bg-red-50 p-4 border border-red-200 max-w-2xl mx-auto my-12">
+    <div class="flex">
+        <div class="flex-shrink-0 text-red-400">
+            <svg class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+            </svg>
+        </div>
+        <div class="ml-3">
+            <h3 class="text-sm font-bold text-red-800">Terminal Configuration Error</h3>
+            <p class="text-sm text-red-700 mt-1">{{ configuration_error }}</p>
+        </div>
+    </div>
+</div>
+{% else %}
+{% if current_pos_shift %}
+<div class="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900">
+    <strong>Shift open</strong> since {{ current_pos_shift.opened_at|date:"H:i" }} · Opening cash KES {{ current_pos_shift.opening_cash|floatformat:2 }}
+</div>
+{% else %}
+<div class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 max-w-xl">
+    <h2 class="font-bold text-amber-900">Open your shift before selling</h2>
+    <form hx-post="{% url 'core:pos_shift_open' %}" hx-target="#shift-open-result" class="mt-3 flex gap-2 items-end">
+        {% csrf_token %}
+        <label class="text-xs font-semibold text-amber-900">Opening cash (KES)
+            <input type="number" name="opening_cash" min="0" step="0.01" value="0.00" required
+                   class="mt-1 block rounded border-amber-300 bg-white px-3 py-2 text-sm">
+        </label>
+        <button class="rounded bg-slate-900 px-4 py-2 text-sm font-bold text-white">Open shift</button>
+    </form>
+    <div id="shift-open-result" class="mt-2"></div>
+</div>
+{% endif %}
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start h-[calc(100vh-140px)]">
+    
+    <div class="lg:col-span-7 flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-4 bg-gray-50 border-b border-gray-200">
+            <div class="flex items-center justify-between mb-3">
+                <h2 class="text-lg font-bold text-gray-900 tracking-tight">Point of sale</h2>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-brand-100 text-brand-800">
+                    {{ active_branch }}
+                </span>
+            </div>
+            <a href="{% url 'core:pos_customer_display' %}" target="_blank" rel="noopener"
+               class="mb-3 inline-block text-xs font-semibold text-brand-700 underline">Open customer display</a>
+            <div class="relative rounded-md shadow-sm">
+                <input type="text" 
+                       name="q" 
+                       hx-get="{% url 'core:pos_product_lookup' %}" 
+                       hx-trigger="keyup changed delay:200ms" 
+                       hx-target="#lookup-results-node" 
+                       placeholder="Scan a barcode or search by SKU, product or option..."
+                       class="block w-full rounded-md border-gray-300 pr-10 focus:border-brand-500 focus:ring-brand-500 sm:text-sm py-2.5"
+                       autocomplete="off">
+                <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-gray-400">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div id="lookup-results-node" class="flex-1 overflow-y-auto p-4 content-start grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[calc(100vh-270px)]">
+            <div class="col-span-full text-center py-12 text-gray-400 text-sm">
+                Search for a product to begin.
+            </div>
+        </div>
+    </div>
+
+   <div id="pos-tray-wrapper" class="lg:col-span-5 bg-white rounded-xl shadow-sm border border-gray-200 h-full flex flex-col overflow-hidden max-h-[calc(100vh-140px)]">
+        {% include 'core/partials/pos_cart_tray.html' %}
+    </div>
+</div>
+
+<div class="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+    {% if current_pos_shift %}<div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h3 class="text-sm font-bold text-gray-900 mb-1">End of Shift — Count Your Drawer</h3>
+        <p class="text-xs text-gray-500 mb-4">Count the physical cash in your till. It will be checked against this shift's opening cash and completed cash sales.</p>
+        <form hx-post="{% url 'core:pos_shift_close' %}" hx-target="#shift-close-result" class="space-y-3">
+            {% csrf_token %}
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Cash counted (KES)</label>
+                <input type="number" name="actual_cash" step="0.01" min="0" required
+                       class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500">
+            </div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-600 mb-1">Notes (optional)</label>
+                <textarea name="notes" rows="2" placeholder="Anything worth mentioning about today's till..."
+                          class="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"></textarea>
+            </div>
+            <button type="submit" class="w-full bg-slate-900 hover:bg-brand-600 text-white font-bold text-sm py-2.5 rounded-lg transition">
+                Close My Shift
+            </button>
+        </form>
+        <div id="shift-close-result" class="mt-3"></div>
+    </div>{% endif %}
+
+    {% if pending_reconciliations %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+        <h3 class="text-sm font-bold text-gray-900 mb-1">Shifts Needing Your Review</h3>
+        <p class="text-xs text-gray-500 mb-4">These cash counts didn't match exactly. Check in with the team member, then mark as reviewed.</p>
+        <div class="space-y-2">
+            {% for rec in pending_reconciliations %}
+            <div class="flex items-center justify-between border border-gray-100 rounded-lg p-3 text-xs" id="rec-{{ rec.id }}">
+                <div>
+                    <p class="font-bold text-gray-900">{{ rec.cashier.get_full_name|default:rec.cashier.username }}</p>
+                    <p class="text-gray-500 mt-0.5">Expected KES {{ rec.expected_cash }} · Counted KES {{ rec.actual_cash }}</p>
+                    <p class="font-bold {% if rec.cash_variance < 0 %}text-rose-600{% else %}text-amber-600{% endif %} mt-0.5">
+                        {% if rec.cash_variance < 0 %}Short{% else %}Over{% endif %} by KES {{ rec.cash_variance|floatformat:2 }}
+                    </p>
+                </div>
+                <form hx-post="{% url 'core:pos_shift_verify' rec.id %}"
+                      hx-target="#rec-{{ rec.id }}" hx-swap="outerHTML" class="w-52 space-y-1">
+                    {% csrf_token %}
+                    <input name="verification_reason" required minlength="10"
+                           placeholder="Review outcome/reason"
+                           class="w-full rounded border border-gray-200 px-2 py-1 text-[11px]">
+                    <button class="w-full bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold px-3 py-1.5 rounded-md transition">
+                        Confirm review
+                    </button>
+                </form>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,143 @@
+# Frankfurt and the initial cost baseline were approved on 2026-07-26.
+# Review domains, supplier pricing and all secret values before syncing.
+# This blueprint creates paid production resources; committing it does not deploy them.
+envVarGroups:
+  - name: emporium-production-settings
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: SITE_BASE_URL
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: TRUST_PROXY_HEADERS
+        value: "True"
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      - key: PRIVACY_CONTROLLER_NAME
+        sync: false
+      - key: PRIVACY_CONTACT_EMAIL
+        sync: false
+      - key: PRIVACY_NOTICE_APPROVED
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: NOTIFICATION_PROVIDER
+        sync: false
+      - key: AFRICASTALKING_USERNAME
+        sync: false
+      - key: AFRICASTALKING_API_KEY
+        sync: false
+      - key: AFRICASTALKING_SENDER_ID
+        sync: false
+      - key: MPESA_ENVIRONMENT
+        value: sandbox
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_CALLBACK_URL
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_SEND_DEFAULT_PII
+        value: "False"
+      - key: BACKUP_ENABLED
+        value: "False"
+
+services:
+  - type: web
+    name: emporium-web
+    runtime: python
+    region: frankfurt
+    plan: starter
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    preDeployCommand: python manage.py migrate --noinput
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --access-logfile - --error-logfile -
+    healthCheckPath: /health/ready/
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - fromGroup: emporium-production-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emporium-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: emporium-keyvalue
+          property: connectionString
+
+  - type: worker
+    name: emporium-worker
+    runtime: python
+    region: frankfurt
+    plan: starter
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A config worker --loglevel=INFO --concurrency=2
+    maxShutdownDelaySeconds: 120
+    envVars:
+      - fromGroup: emporium-production-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emporium-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: emporium-keyvalue
+          property: connectionString
+
+  - type: worker
+    name: emporium-beat
+    runtime: python
+    region: frankfurt
+    plan: starter
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A config beat --loglevel=INFO --pidfile=
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - fromGroup: emporium-production-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emporium-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: emporium-keyvalue
+          property: connectionString
+
+  - type: keyvalue
+    name: emporium-keyvalue
+    region: frankfurt
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  - name: emporium-postgres
+    region: frankfurt
+    plan: basic-1gb
+    # Start at 5 GB for the MVP; product media is stored outside PostgreSQL.
+    # Render storage can be increased later but cannot be reduced in place.
+    diskSizeGB: 5
+    postgresMajorVersion: "17"
+    ipAllowList: []

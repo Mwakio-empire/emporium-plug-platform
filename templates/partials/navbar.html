@@ -1,0 +1,32 @@
+<header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
+  <div class="bg-slate-950 px-4 py-1.5 text-center text-[11px] font-semibold text-white sm:text-xs">Pickup at S18, Gaberone Plaza <span class="mx-2 text-brand-400">•</span> Town parcels arranged on WhatsApp</div>
+  <nav aria-label="Main navigation" class="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
+    <div class="flex h-16 items-center gap-3 lg:gap-6">
+      <a href="/" class="shrink-0 text-lg font-black tracking-tight text-slate-950 sm:text-xl" aria-label="Emporium Plug home">Emporium<span class="font-medium text-brand-600">Plug</span></a>
+      <form action="/" method="get" role="search" class="hidden min-w-0 flex-1 sm:flex">
+        <label for="nav-product-search" class="sr-only">Search products</label>
+        <input id="nav-product-search" name="search" type="search" placeholder="What are you looking for?" value="{{ request.GET.search }}" class="min-w-0 flex-1 rounded-l-full border border-r-0 border-slate-300 bg-slate-50 px-4 py-2 text-sm text-slate-900 focus:border-brand-500 focus:ring-brand-500">
+        <button class="rounded-r-full bg-brand-600 px-5 py-2 text-sm font-bold text-white hover:bg-brand-700">Search</button>
+      </form>
+      <div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
+        <a href="/#products" class="hidden rounded-lg px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">Shop</a>
+        {% if user.is_authenticated %}
+          {% if user.role == 'CUSTOMER' %}<a href="{% url 'accounts:profile' %}" class="px-2 py-2 text-xs font-semibold text-slate-700 hover:text-brand-700 sm:text-sm">My account</a>{% endif %}
+          {% if user.role == 'STAFF' or user.role == 'BRANCH_MANAGER' %}<a href="{% url 'core:pos_workspace' %}" class="hidden px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">POS</a>{% endif %}
+          {% if user.role == 'INVENTORY_MANAGER' or user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a href="{% url 'inventory:inventory-workspace' %}" class="hidden px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">Inventory</a>{% endif %}
+          {% if user.role == 'STAFF' or user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a href="{% url 'logistics:fulfilment-workspace' %}" class="hidden px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">Orders</a>{% endif %}
+          <form method="post" action="/accounts/logout/" class="inline">{% csrf_token %}<button type="submit" class="px-2 py-2 text-xs font-semibold text-slate-700 hover:text-brand-700 sm:text-sm">Log out</button></form>
+        {% else %}<a href="/accounts/login/?next={{ request.path|urlencode }}" class="px-2 py-2 text-xs font-semibold text-slate-700 hover:text-brand-700 sm:text-sm">Sign in</a>{% endif %}
+        <a href="/#products" data-cart-open class="relative inline-flex h-10 w-11 items-center justify-center rounded-full bg-slate-950 text-white hover:bg-slate-800" aria-label="Open shopping cart">
+          <svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2l2.1 10.1a2 2 0 0 0 2 1.6h7.8a2 2 0 0 0 1.9-1.4L21 7H6"/><circle cx="9" cy="20" r="1.2"/><circle cx="18" cy="20" r="1.2"/></svg>
+          <span id="nav-cart-counter-badge" class="absolute -right-1 -top-1" hx-get="{% url 'core:navbar_cart_counter' %}" hx-trigger="load, update-navbar-cart-count from:body" hx-target="this"></span>
+        </a>
+      </div>
+    </div>
+    <form action="/" method="get" role="search" class="flex pb-3 sm:hidden">
+      <label for="mobile-product-search" class="sr-only">Search products</label>
+      <input id="mobile-product-search" name="search" type="search" placeholder="Search products" value="{{ request.GET.search }}" class="min-w-0 flex-1 rounded-l-full border border-r-0 border-slate-300 bg-slate-50 px-4 py-2 text-sm">
+      <button class="rounded-r-full bg-brand-600 px-4 text-sm font-bold text-white">Search</button>
+    </form>
+  </nav>
+</header>

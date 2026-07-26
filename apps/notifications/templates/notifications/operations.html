@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Notification operations - EmporiumPlug{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-6xl" aria-labelledby="notification-heading">
+  <p class="text-sm font-bold text-brand-700">Management</p>
+  <h1 id="notification-heading" class="mt-1 text-3xl font-black text-slate-950">Notification operations</h1>
+  <p class="mt-2 text-sm text-slate-600">Delivery evidence excludes message bodies and OTP values. Recipients are masked in this queue.</p>
+
+  <h2 class="mt-7 text-xl font-bold">Manual follow-up required</h2>
+  <div class="mt-3 space-y-3">
+    {% for item in followups %}
+    <article class="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm">
+      <div class="flex flex-wrap justify-between gap-2"><strong>{{ item.event_type }} · {{ item.reference_type }} {{ item.reference_id }}</strong><span>{{ item.branch.name|default:'System-wide' }}</span></div>
+      <p class="mt-1 text-slate-700">Recipient ***{{ item.recipient|slice:'-4:' }} · Attempts {{ item.attempt_count }}/{{ item.max_attempts }} · {{ item.last_error_code|default:item.provider_status }}</p>
+      <form method="post" class="mt-3 flex flex-col gap-2 sm:flex-row">{% csrf_token %}<input type="hidden" name="notification_id" value="{{ item.id }}"><label class="sr-only" for="note-{{ item.id }}">Follow-up evidence</label><input id="note-{{ item.id }}" required minlength="8" name="resolution_note" class="flex-1 rounded-lg border-amber-300" placeholder="Record contact/evidence and outcome"><button class="rounded-lg bg-slate-900 px-4 py-2 font-bold text-white">Mark resolved</button></form>
+    </article>
+    {% empty %}<p class="rounded-xl bg-white p-5 text-sm text-slate-500">No notifications require manual follow-up.</p>{% endfor %}
+  </div>
+
+  <h2 class="mt-8 text-xl font-bold">Recent delivery state</h2>
+  <div class="mt-3 overflow-x-auto rounded-xl bg-white p-4"><table class="w-full text-left text-sm"><thead><tr><th class="py-2">Event</th><th>Branch</th><th>Status</th><th>Channel</th><th>Attempts</th><th>Created</th></tr></thead><tbody>{% for item in recent %}<tr class="border-t"><td class="py-2">{{ item.event_type }}</td><td>{{ item.branch.name|default:'System' }}</td><td>{{ item.get_status_display }}</td><td>{{ item.channel }}</td><td>{{ item.attempt_count }}</td><td>{{ item.created_at|date:'Y-m-d H:i' }}</td></tr>{% empty %}<tr><td colspan="6" class="py-4 text-slate-500">No notification attempts recorded.</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% endblock %}

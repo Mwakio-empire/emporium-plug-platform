@@ -1,0 +1,85 @@
+<div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+    <div class="bg-white overflow-hidden shadow rounded-lg border border-gray-100">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Gross Aggregate Sales</p>
+                    <p class="mt-2 text-2xl font-bold text-gray-900">KES {{ gross_revenue|floatformat:2 }}</p>
+                </div>
+                <div class="p-3 bg-green-50 rounded-md text-brand-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow rounded-lg border border-gray-100">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Completed Orders Count</p>
+                    <p class="mt-2 text-2xl font-bold text-gray-900">{{ total_sales_volume }} Transactions</p>
+                </div>
+                <div class="p-3 bg-blue-50 rounded-md text-blue-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow rounded-lg border border-gray-100">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">M-Pesa Paybill Settlements</p>
+                    <p class="mt-2 text-xl font-bold text-emerald-700">KES {{ mpesa_sales|floatformat:2 }}</p>
+                </div>
+                <div class="p-3 bg-emerald-50 rounded-md text-emerald-600">
+                    <span class="text-xs font-black tracking-tighter">MPESA</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="bg-white overflow-hidden shadow rounded-lg border border-gray-100">
+        <div class="p-5">
+            <div class="flex items-center">
+                <div class="flex-1">
+                    <p class="text-xs font-medium text-gray-400 uppercase tracking-wider">Physical Cash Intakes</p>
+                    <p class="mt-2 text-xl font-bold text-amber-700">KES {{ cash_sales|floatformat:2 }}</p>
+                </div>
+                <div class="p-3 bg-amber-50 rounded-md text-amber-600">
+                    <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="bg-white p-6 rounded-lg shadow border border-gray-100 lg:col-span-2">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Periodic Financial Performance Flow Graph</h3>
+        <div class="h-72 relative">
+            <canvas id="timeSeriesRevenueTrendLineChart"
+                    data-labels="{{ chart_labels|escape }}"
+                    data-revenue="{{ chart_revenue_dataset|escape }}"
+                    data-volume="{{ chart_volume_dataset|escape }}"></canvas>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow border border-gray-100">
+        <h3 class="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Liquidity Channels Breakdown</h3>
+        <div class="h-72 relative flex items-center justify-center">
+            <canvas id="paymentMethodSplitDoughnutChart"
+                    data-mpesa="{{ mpesa_sales|default:0 }}"
+                    data-cash="{{ cash_sales|default:0 }}"></canvas>
+        </div>
+    </div>
+</div>
+

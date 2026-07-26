@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block title %}Verify Your Phone - EmporiumPlug{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto mt-12 bg-white rounded-xl shadow-sm border border-gray-100 p-8">
+    <h1 class="text-2xl font-black text-slate-900 mb-2">Verify Your Phone</h1>
+    <p class="text-sm text-gray-500 mb-6">We sent a 6-digit code to <span class="font-bold text-gray-700">{{ phone }}</span>.</p>
+    <form method="post" class="space-y-4">
+        {% csrf_token %}
+        <div>
+            <label class="block text-xs font-bold text-gray-600 mb-1">Verification Code</label>
+            {{ form.code }}
+            <p class="text-xs text-red-600 mt-1">{{ form.code.errors|striptags }}</p>
+        </div>
+        <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-lg transition">
+            Verify
+        </button>
+    </form>
+    <form method="post" action="{% url 'accounts:resend-otp' %}" class="mt-4 text-center">
+        {% csrf_token %}
+        <button type="submit" class="text-xs text-brand-600 font-bold hover:underline">Didn't get a code? Resend</button>
+    </form>
+</div>
+{% endblock %}

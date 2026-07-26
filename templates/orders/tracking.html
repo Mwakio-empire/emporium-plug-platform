@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Track order {{ order_number }} - EmporiumPlug{% endblock %}
+{% block meta_description %}View the current status of your EmporiumPlug order.{% endblock %}
+{% block extra_head %}<meta name="referrer" content="no-referrer">{% endblock %}
+
+{% block content %}
+<section class="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6" aria-labelledby="tracking-heading" data-order-number="{{ order_number }}" id="order-tracking">
+    <p class="text-sm font-semibold text-brand-700">Order tracking</p>
+    <h1 id="tracking-heading" class="mt-1 text-2xl font-bold text-slate-900">Order {{ order_number }}</h1>
+    <div id="tracking-message" role="status" aria-live="polite" class="mt-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">Loading your order...</div>
+    <div id="tracking-details" class="mt-5 hidden">
+        <dl class="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
+            <div><dt class="text-xs font-semibold uppercase text-slate-500">Status</dt><dd id="tracking-status" class="mt-1 font-bold text-slate-900"></dd></div>
+            <div><dt class="text-xs font-semibold uppercase text-slate-500">Branch</dt><dd id="tracking-branch" class="mt-1 text-slate-900"></dd></div>
+            <div><dt class="text-xs font-semibold uppercase text-slate-500">Total</dt><dd id="tracking-total" class="mt-1 text-slate-900"></dd></div>
+            <div><dt class="text-xs font-semibold uppercase text-slate-500">Fulfilment</dt><dd id="tracking-type" class="mt-1 text-slate-900"></dd></div>
+        </dl>
+        <div id="tracking-parcel" class="mt-4 hidden rounded-xl border border-blue-100 bg-blue-50 p-4 text-sm text-blue-950"></div>
+        <div id="pickup-deadline" class="mt-4 hidden rounded-xl border border-orange-200 bg-orange-50 p-4 text-sm text-orange-950"></div>
+        <section class="mt-6" aria-labelledby="progress-heading">
+            <h2 id="progress-heading" class="text-lg font-bold text-slate-900">Order progress</h2>
+            <ol id="tracking-timeline" class="mt-3 space-y-3"></ol>
+        </section>
+        <h2 class="mt-6 text-lg font-bold text-slate-900">Items</h2>
+        <ul id="tracking-items" class="mt-3 divide-y divide-slate-100"></ul>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}<script src="{% static 'orders/tracking.js' %}" defer></script>{% endblock %}

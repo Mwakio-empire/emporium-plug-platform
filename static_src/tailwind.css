@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@media (max-width: 1023px) {
+  #mobile-filter-toggle:checked ~ .catalog-layout > aside {
+    display: block;
+  }
+}
+
+@layer utilities {
+  .htmx-indicator { display: none; }
+  .htmx-request .htmx-indicator,
+  .htmx-request.htmx-indicator { display: block; }
+}
+
+@layer base {
+  :focus-visible {
+    outline: 3px solid #f97316;
+    outline-offset: 2px;
+  }
+}

@@ -1,0 +1,22 @@
+<div class="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 xl:grid-cols-4">
+  {% for product in products %}
+  <article class="group flex min-w-0 flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+    <a href="{% url 'core:product_detail' product.slug %}" class="block aspect-square overflow-hidden bg-slate-100">{% if product.image %}<img src="{{ product.image.url }}" alt="{{ product.name }}" loading="lazy" class="h-full w-full object-cover transition duration-300 group-hover:scale-105">{% else %}<span class="flex h-full w-full items-center justify-center px-2 text-center text-xs text-slate-500">Image coming soon</span>{% endif %}</a>
+    <div class="flex flex-1 flex-col p-2.5 sm:p-3">
+      <p class="truncate text-[10px] font-bold uppercase tracking-wide text-brand-700 sm:text-xs">{{ product.category.name }}</p>
+      <h3 class="mt-1 line-clamp-2 min-h-[2.5rem] text-sm font-bold leading-5 text-slate-950"><a href="{% url 'core:product_detail' product.slug %}" class="hover:text-brand-700">{{ product.name }}</a></h3>
+      <p class="mt-1 hidden text-xs text-slate-500 sm:line-clamp-2">{{ product.description|default:"Product details available on the product page." }}</p>
+      <div class="mt-auto pt-2">
+        <p class="text-sm font-black text-slate-950 sm:text-base">KES {{ product.price }}</p>
+        {% if product.available_stock > 0 %}<p class="mt-0.5 text-[10px] font-semibold text-emerald-700">In stock</p>{% else %}<p class="mt-0.5 text-[10px] font-semibold text-rose-700">Out of stock</p>{% endif %}
+        {% if product.variants.exists %}
+          <a href="{% url 'core:product_detail' product.slug %}" class="mt-2 block rounded-lg bg-slate-950 px-2 py-2 text-center text-xs font-bold text-white hover:bg-slate-800">Choose options</a>
+        {% elif product.available_stock > 0 %}
+          <form hx-post="{% url 'core:cart_action_gateway' %}" hx-target="#cart-drawer-target" hx-swap="innerHTML">{% csrf_token %}<input type="hidden" name="action" value="add"><input type="hidden" name="product_id" value="{{ product.id }}"><button data-cart-open-on-htmx class="mt-2 w-full rounded-lg bg-brand-600 px-2 py-2 text-xs font-bold text-white hover:bg-brand-700">Add to cart</button></form>
+        {% else %}<button disabled class="mt-2 w-full cursor-not-allowed rounded-lg bg-slate-200 px-2 py-2 text-xs font-bold text-slate-500">Out of stock</button>{% endif %}
+      </div>
+    </div>
+  </article>
+  {% empty %}<div class="col-span-full rounded-xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center"><p class="font-bold text-slate-900">No products found</p><p class="mt-1 text-sm text-slate-500">Try a different search or clear your filters.</p></div>{% endfor %}
+</div>
+{% if page_obj.has_other_pages %}<nav class="mt-6 flex justify-center gap-2 text-sm" aria-label="Product pages">{% if page_obj.has_previous %}<a class="rounded-lg border px-3 py-2" href="?page={{ page_obj.previous_page_number }}">Previous</a>{% endif %}<span class="px-3 py-2">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a class="rounded-lg border px-3 py-2" href="?page={{ page_obj.next_page_number }}">Next</a>{% endif %}</nav>{% endif %}

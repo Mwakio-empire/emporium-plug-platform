@@ -1,0 +1,20 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Customer Display</title>
+  <link rel="stylesheet" href="{% static 'core/storefront.css' %}">
+  <script src="{% static 'vendor/htmx.min.js' %}" defer></script>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-950">
+  <main class="mx-auto max-w-4xl p-6" aria-live="polite">
+    <h1 class="text-3xl font-bold">Your purchase</h1>
+    <div hx-get="{% url 'core:pos_customer_display_current' %}"
+         hx-trigger="load, every 1s" hx-swap="innerHTML" class="mt-6">
+      Loading current sale&hellip;
+    </div>
+  </main>
+</body>
+</html>

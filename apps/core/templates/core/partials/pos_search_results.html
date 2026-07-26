@@ -1,0 +1,61 @@
+<div class="overflow-x-auto">
+  <table class="w-full text-left border-collapse text-xs">
+    <thead>
+      <tr class="border-b border-gray-200 bg-gray-50 text-gray-400 font-bold uppercase tracking-wider text-[10px]">
+        <th class="p-2.5">Product</th>
+        <th class="p-2.5">Option</th>
+        <th class="p-2.5 text-right">Price</th>
+        <th class="p-2.5 text-center">Action</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-gray-100">
+      {% for variant in variants %}
+      <tr class="hover:bg-gray-50/80 transition group">
+        <td class="p-2.5 font-medium text-slate-900">
+          <span class="block font-bold group-hover:text-brand-600 transition">{{ variant.product.name }}</span>
+          <span class="text-[10px] font-mono text-gray-400 block mt-0.5">SKU: {{ variant.product.sku }}</span>
+        </td>
+        <td class="p-2.5">
+          <span class="bg-slate-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-mono font-medium">{{ variant.attribute_name }}: {{ variant.attribute_value }}</span>
+        </td>
+        <td class="p-2.5 text-right font-mono font-bold text-slate-900">
+          KES {{ variant.effective_price }}<br><span class="text-[10px] text-emerald-700">{{ variant.pos_available }} available</span>
+        </td>
+        <td class="p-2.5 text-center">
+          <form hx-post="{% url 'core:pos_cart_action' %}" hx-target="#pos-tray-wrapper">
+            {% csrf_token %}
+            <input type="hidden" name="variant_id" value="{{ variant.id }}">
+            <input type="hidden" name="action" value="add">
+            <button type="submit" class="px-2.5 py-1 bg-slate-900 hover:bg-brand-600 text-white rounded font-bold text-[11px] transition shadow-sm">Add item</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+
+      {% for product in products %}
+      <tr class="hover:bg-gray-50/80 transition group">
+        <td class="p-2.5 font-medium text-slate-900">
+          <span class="block font-bold group-hover:text-brand-600 transition">{{ product.name }}</span>
+          <span class="text-[10px] font-mono text-gray-400 block mt-0.5">SKU: {{ product.sku }}</span>
+        </td>
+        <td class="p-2.5"><span class="text-gray-300 text-[10px] font-mono">&mdash;</span></td>
+        <td class="p-2.5 text-right font-mono font-bold text-slate-900">
+          KES {{ product.price }}<br><span class="text-[10px] text-emerald-700">{{ product.pos_available }} available</span>
+        </td>
+        <td class="p-2.5 text-center">
+          <form hx-post="{% url 'core:pos_cart_action' %}" hx-target="#pos-tray-wrapper">
+            {% csrf_token %}
+            <input type="hidden" name="product_id" value="{{ product.id }}">
+            <input type="hidden" name="action" value="add">
+            <button type="submit" class="px-2.5 py-1 bg-slate-900 hover:bg-brand-600 text-white rounded font-bold text-[11px] transition shadow-sm">Add item</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+
+      {% if not variants and not products %}
+      <tr><td colspan="4" class="p-8 text-center text-gray-400 italic">No matching in-stock products were found at this branch.</td></tr>
+      {% endif %}
+    </tbody>
+  </table>
+</div>

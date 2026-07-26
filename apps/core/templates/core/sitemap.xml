@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url><loc>{{ home_url }}</loc></url>
+  {% for static_url in static_urls %}<url><loc>{{ static_url }}</loc></url>{% endfor %}
+  {% for category in categories %}<url><loc>{% url 'core:category_storefront' category.slug as category_path %}{{ request.scheme }}://{{ request.get_host }}{{ category_path }}</loc></url>{% endfor %}
+  {% for product in products %}<url><loc>{% url 'core:product_detail' product.slug as product_path %}{{ request.scheme }}://{{ request.get_host }}{{ product_path }}</loc><lastmod>{{ product.updated_at|date:'Y-m-d' }}</lastmod>{% if product.image %}<image:image><image:loc>{{ product.image.url }}</image:loc><image:title>{{ product.name }}</image:title></image:image>{% endif %}</url>{% endfor %}
+</urlset>

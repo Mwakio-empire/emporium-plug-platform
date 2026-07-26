@@ -1,0 +1,13 @@
+{% for node in nodes %}
+<li>
+    <a href="?category={{ node.category.pk }}{% if selected_branch_id %}&amp;branch={{ selected_branch_id }}{% endif %}"
+       class="block rounded px-2 py-1 hover:bg-brand-50 hover:text-brand-700">
+        {{ node.category.name }}
+    </a>
+    {% if node.children %}
+    <ul class="ml-3 border-l border-gray-200 pl-2 space-y-1">
+        {% include 'core/partials/category_tree.html' with nodes=node.children %}
+    </ul>
+    {% endif %}
+</li>
+{% endfor %}

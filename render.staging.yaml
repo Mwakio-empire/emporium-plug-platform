@@ -1,0 +1,140 @@
+# Isolated pre-production environment. Sync this Blueprint separately from
+# render.yaml and never enter production credentials or customer data here.
+envVarGroups:
+  - name: emporium-staging-settings
+    envVars:
+      - key: ENVIRONMENT
+        value: staging
+      - key: DEBUG
+        value: "False"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: SITE_BASE_URL
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: TRUST_PROXY_HEADERS
+        value: "True"
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      - key: PRIVACY_CONTROLLER_NAME
+        value: "Staging synthetic data only"
+      - key: PRIVACY_CONTACT_EMAIL
+        value: "staging-invalid@example.invalid"
+      - key: PRIVACY_NOTICE_APPROVED
+        value: "False"
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: NOTIFICATION_PROVIDER
+        value: console
+      - key: WHATSAPP_FALLBACK_ENABLED
+        value: "False"
+      - key: WHATSAPP_ORDER_PHONE
+        value: ""
+      - key: INBOUND_SMS_ENABLED
+        value: "False"
+      - key: MPESA_ENVIRONMENT
+        value: sandbox
+      - key: MPESA_CONSUMER_KEY
+        sync: false
+      - key: MPESA_CONSUMER_SECRET
+        sync: false
+      - key: MPESA_SHORTCODE
+        sync: false
+      - key: MPESA_PASSKEY
+        sync: false
+      - key: MPESA_CALLBACK_URL
+        sync: false
+      - key: SENTRY_DSN
+        sync: false
+      - key: SENTRY_SEND_DEFAULT_PII
+        value: "False"
+      - key: BACKUP_ENABLED
+        value: "False"
+
+services:
+  - type: web
+    name: emporium-staging-web
+    runtime: python
+    region: frankfurt
+    plan: starter
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt && python manage.py collectstatic --noinput
+    preDeployCommand: python manage.py migrate --noinput
+    startCommand: gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers 2 --timeout 60 --access-logfile - --error-logfile -
+    healthCheckPath: /health/ready/
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - fromGroup: emporium-staging-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emporium-staging-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: emporium-staging-keyvalue
+          property: connectionString
+
+  - type: worker
+    name: emporium-staging-worker
+    runtime: python
+    region: frankfurt
+    plan: starter
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A config worker --loglevel=INFO --concurrency=2
+    maxShutdownDelaySeconds: 120
+    envVars:
+      - fromGroup: emporium-staging-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emporium-staging-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: emporium-staging-keyvalue
+          property: connectionString
+
+  - type: worker
+    name: emporium-staging-beat
+    runtime: python
+    region: frankfurt
+    plan: starter
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    startCommand: celery -A config beat --loglevel=INFO --pidfile=
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - fromGroup: emporium-staging-settings
+      - key: DATABASE_URL
+        fromDatabase:
+          name: emporium-staging-postgres
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: emporium-staging-keyvalue
+          property: connectionString
+
+  - type: keyvalue
+    name: emporium-staging-keyvalue
+    region: frankfurt
+    plan: starter
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
+databases:
+  - name: emporium-staging-postgres
+    region: frankfurt
+    plan: basic-256mb
+    diskSizeGB: 5
+    postgresMajorVersion: "17"
+    ipAllowList: []

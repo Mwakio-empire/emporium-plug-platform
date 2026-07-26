@@ -1,0 +1,17 @@
+<div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+  {% if items %}
+    <div class="space-y-4">
+      {% for item in items %}
+      <div class="flex justify-between gap-6 border-b border-slate-100 pb-3 text-lg">
+        <div><strong>{{ item.name }}</strong><div class="text-sm text-slate-500">{{ item.quantity }} &times; KES {{ item.price|floatformat:2 }}</div></div>
+        <div class="font-bold">KES {{ item.total_price|floatformat:2 }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="mt-8 flex justify-between text-4xl font-black text-slate-950">
+      <span>Total</span><span>KES {{ total|floatformat:2 }}</span>
+    </div>
+  {% else %}
+    <p class="py-16 text-center text-2xl text-slate-500">Your items will appear here.</p>
+  {% endif %}
+</div>
