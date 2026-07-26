@@ -14,6 +14,7 @@
 | Partial/overpayment handling | Complete and verified locally | Both enter `RECONCILIATION_REQUIRED`; fulfilment remains pending. |
 | Poll missing callback | Complete and verified locally | Query success records evidence only and awaits callback/manual reconciliation. |
 | Manual fallback | Complete and verified locally | Separate submitted reference plus branch-scoped manager re-authentication and risk audit. |
+| Walk-in C2B automatic matching | Deferred by accepted business decision | Amount-and-time matching was rejected as unsafe. ADR-001 requires a C2B-enabled client shortcode, unique order reference, exact amount, unique provider transaction ID and provider certification before implementation. |
 | Failure releases inventory once | Complete and verified | Atomic row locking and stock audit tests cover duplicate failure callbacks. |
 | Paid order enters processing | Complete and verified | Callback moves PENDING to PROCESSING, not COMPLETED. |
 | Cash amount/change/cashier/branch | Complete and verified locally | Tender and change are persisted; insufficient cash rolls back atomically. |

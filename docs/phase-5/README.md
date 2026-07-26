@@ -13,6 +13,7 @@ This phase hardens M-Pesa initiation, callback reconciliation, polling, failure 
 - Cash is permitted for delivery and branch pickup. Checkout must show the full payable amount and require explicit customer confirmation.
 - Sensitive payment corrections use the manager's full password re-authentication, with throttling and audit logging. A reusable manager PIN is not being introduced.
 - A customer-entered Paybill reference is a reconciliation lead, not proof of payment.
+- The client accepted deferring automatic C2B Paybill matching from launch on 2026-07-26. Walk-in Paybill remains manager-verified because amount-and-time matching can attach a payment to the wrong sale. See [ADR-001](adr-001-c2b-paybill-launch-scope.md).
 
 ## Exit gate
 
@@ -43,6 +44,7 @@ This phase hardens M-Pesa initiation, callback reconciliation, polling, failure 
 - Customer-entered fallback references have their own unique field and never replace provider identifiers or receipts.
 - Manual confirmation requires authenticated staff, branch isolation, manager password re-authentication, exact evidence, a reason, and immutable risk/audit records.
 - Walk-in Paybill completion has the same manager-verification control. The actual cashier remains recorded as processor.
+- No C2B validation/confirmation endpoint is claimed for launch. A future implementation requires a client-controlled C2B-enabled shortcode and exact order-reference, amount and unique transaction-ID matching.
 - POS cash records amount received and change due and rolls back the sale and stock mutation for insufficient tender.
 - Payment records are view-only in Django Admin; staff cannot fabricate or delete them there.
 - The abandoned pending-order sweep is registered in Celery Beat every five minutes.

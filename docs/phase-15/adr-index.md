@@ -5,6 +5,7 @@
 | Full manager-password re-authentication | [ADR 2-001](../phase-2/adr-001-manager-approval-credential.md) | Client accepted |
 | Best-selling ranking definition | [ADR 3-001](../phase-3/adr-001-best-selling-ranking.md) | Accepted |
 | Cash for delivery/pickup; fee only for delivery | [ADR 4-001](../phase-4/adr-001-cash-fulfilment-scope.md) | Client accepted |
+| Defer automatic C2B Paybill matching; retain audited manual verification | [ADR 5-001](../phase-5/adr-001-c2b-paybill-launch-scope.md) | Client accepted |
 | Rider identity is profile-based | [Role matrix](../phase-1/role-matrix.md) and [Phase 8](../phase-8/README.md) | Accepted |
 | Three branches; OTC hub; S18 pickup | [Phase 7 topology](../phase-7/topology-and-decisions.md) | Accepted; addresses pending |
 | Seven-day eligible non-clothing return window | [Phase 9 rules](../phase-9/business-rules.md) | Client accepted |

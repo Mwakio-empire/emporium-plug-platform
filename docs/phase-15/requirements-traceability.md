@@ -10,7 +10,7 @@
 | Catalog/storefront/cart | Responsive storefront, search/filter/detail/cart/SEO/accessibility tests | Complete and verified locally | Real catalog/media content and client accessibility/UAT. |
 | Guest/customer checkout | Pickup-first S18 checkout, cart-aware WhatsApp parcel handoff, coupon feedback, idempotent order creation and signed guest tracking | Complete and verified locally | Configure real S18 slots and complete client UAT. |
 | M-Pesa | STK initiation, callback inbox, exact amount/ID checks, idempotency, polling and reconciliation states | Implemented but externally unverified | Daraja sandbox certification and authorized low-value production test. |
-| Cash/Paybill | POS cash tender/change/shift; controlled manual Paybill verification | Complete and verified locally | Cashier/manager UAT and real Paybill reconciliation acceptance. |
+| Cash/Paybill | POS cash tender/change/shift; controlled manual Paybill verification | Complete and verified locally for approved launch scope | Cashier/manager UAT and real Paybill reconciliation acceptance. Automatic C2B matching is explicitly deferred by Phase 5 ADR-001. |
 | POS accountability | Shift-bound sale, manager discount, receipts, reversal void and variance review | Complete and verified locally | Hardware/fiscal decisions and UAT. |
 | Intake/inventory/transfers | Hub intake, adjustments, counts, transfer custody and low-stock suppression | Complete and verified locally | Configure official branches; PostgreSQL/load and staff UAT. |
 | Fulfilment | Packing, rider assignment, delivery states, S18 pickup/code/deadline | Complete and verified locally | Rider/customer UAT, carriers/rates, public-holiday decision. |

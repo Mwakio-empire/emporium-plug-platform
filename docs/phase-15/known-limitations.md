@@ -25,6 +25,7 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 - Partial/over payments and unidentified callbacks enter reconciliation rather than ordinary success.
 - Exact order-total equality and order-item multiplication are enforced by services/tests, not complete database expressions.
 - Customer-entered Paybill/reference values never prove payment.
+- Automatic walk-in C2B matching is deferred by client decision. Launch uses audited manager verification; amount-and-time-only matching is prohibited. Future C2B work requires a client-controlled enabled shortcode, unique order reference and provider certification.
 
 ## Data/security design debt
 
