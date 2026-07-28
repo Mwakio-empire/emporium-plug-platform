@@ -17,7 +17,26 @@ $env:BACKUP_ENABLED='True'
 .\venv\Scripts\python.exe manage.py create_database_backup
 ```
 
-Production scheduling should use a single platform cron job. The application Beat schedule intentionally does not run backups. Alert on every missed/failed backup and keep the bucket separate from the application account where practical.
+Copy the returned object key into the verification command; do not copy a database
+URL, storage credential or checksum into chat:
+
+```powershell
+.\venv\Scripts\python.exe manage.py verify_database_backup --object-key "<exact object key printed by create_database_backup>"
+```
+
+Verification downloads to a temporary file, requires approved S3 server-side
+encryption, compares SHA-256 metadata in constant time and requires
+`pg_restore --list` to parse the archive. The temporary file is removed on both
+success and failure. This proves archive integrity and readability only; it does
+not replace a controlled restore.
+
+Production scheduling should use a single platform cron job. The application
+Beat schedule intentionally does not run backups. Alert on every missed/failed
+backup and verification, and keep the bucket in a separate account where
+practical. The client must approve retention before launch; configure bucket
+versioning, denied public access, lifecycle retention and deletion protection
+at the storage layer. Never rely on application code alone to prevent backup
+deletion.
 
 ## Controlled restore test
 
@@ -33,3 +52,19 @@ Production scheduling should use a single platform cron job. The application Bea
 7. Destroy the isolated restored database according to the approved test-data handling procedure.
 
 Restore testing is not complete until this procedure succeeds against the selected managed host. Never place a production database URL in chat, source control or test output.
+
+## Acceptance evidence
+
+Record all of the following in the release evidence package:
+
+- managed PITR status and earliest selectable recovery point;
+- source database and isolated restore identifiers, without credentials;
+- backup object key, SHA-256, encryption mode and retention class;
+- backup start/end, restore start/end and integrity/reconciliation results;
+- measured RPO and RTO compared with the proposed 15-minute RPO and four-hour
+  RTO; and
+- operator, reviewer, date, tested Git revision and cleanup confirmation.
+
+The 15-minute/four-hour targets remain proposed until the client accepts them.
+Item 8 remains a critical launch blocker until both the managed PITR exercise
+and one logical archive restore succeed on funded staging infrastructure.

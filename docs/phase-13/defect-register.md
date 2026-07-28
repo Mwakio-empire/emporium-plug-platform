@@ -8,8 +8,8 @@
 | PROD-004 | High | Corrected | Static files used basic storage and production `collectstatic` failed through Cloudinary's legacy override | WhiteNoise hashed/compressed storage; removed unused override app; production static build passes |
 | PROD-005 | High | Corrected | Production origin/proxy/media settings could be incomplete | HTTPS origin/site, proxy and Cloudinary fail-fast gates |
 | PROD-006 | Medium | Corrected | Logs lacked stable structure/correlation | JSON production formatter and safe request IDs |
-| PROD-007 | High | External gate | No managed staging/production services currently provisioned | Cost baseline approved 2026-07-26; final deployment authorization and Blueprint sync required |
-| PROD-008 | Critical gate | External gate | No proven PITR or logical restore | Paid managed database plus controlled restore exercise required before launch |
+| PROD-007 | High | External gate — funding | No managed staging/production services currently provisioned. The private GitHub repository and staging Blueprint are ready, but on 2026-07-28 Render required a valid payment method and infrastructure funding was unavailable. | Fund the client-owned Render account, review the live Blueprint estimate before applying it, then provision and verify staging. Do not treat local or free-tier-only checks as staging proof. |
+| PROD-008 | Critical gate | Implemented locally; external gate | Native backup creation and uploaded-archive verification are locally tested, but no managed PITR or logical restore has succeeded. | Fund managed staging, enable PITR, provision approved off-site storage, then complete and measure both restore exercises before launch. |
 | PROD-009 | High | External gate | No configured uptime/worker/database/Redis alerts | Configure and test on staging/production host |
 | PROD-010 | High | External gate | No staging load test or external penetration assessment | Execute after stable staging deployment |
 | PROD-011 | Medium | Resolved | Frankfurt and the cost-conscious initial sizes were approved on 2026-07-26 | Measure Nairobi-to-staging latency and retain the documented cross-border-data caveat |

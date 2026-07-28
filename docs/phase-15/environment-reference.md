@@ -77,7 +77,7 @@ Run `python manage.py daraja_sandbox_preflight` before sandbox certification. Ne
 | `SENTRY_DSN`, `SENTRY_TRACES_SAMPLE_RATE`, `SENTRY_PROFILES_SAMPLE_RATE` | Error/performance monitoring. Keep sample rates deliberate. |
 | `SENTRY_SEND_DEFAULT_PII` | Defaults false and should remain false unless a documented privacy decision approves otherwise. |
 | `BACKUP_ENABLED`, `BACKUP_S3_BUCKET`, `BACKUP_S3_PREFIX`, `BACKUP_S3_REGION`, `BACKUP_S3_KMS_KEY_ID` | Optional encrypted off-site logical backup. Does not replace managed PITR. |
-| `PG_DUMP_BINARY`, `BACKUP_COMMAND_TIMEOUT_SECONDS` | Native PostgreSQL backup command and timeout. |
+| `PG_DUMP_BINARY`, `PG_RESTORE_BINARY`, `BACKUP_PGSSLMODE`, `BACKUP_COMMAND_TIMEOUT_SECONDS` | Native PostgreSQL backup/verification binaries, required transport mode and command timeout. Deployed environments default to TLS-required backup connections. |
 
 ## HTTPS controls
 

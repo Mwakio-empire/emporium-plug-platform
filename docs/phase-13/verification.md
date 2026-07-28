@@ -15,7 +15,13 @@ npm.cmd run build
 
 ## Evidence recorded during implementation
 
-- Focused health/backup suite: 6 passed.
+- Focused backup suite after archive-verification hardening: **7 passed, 0 failed**.
+- Uploaded archives now fail closed when encryption metadata is absent, the
+  SHA-256 differs or `pg_restore` cannot read the catalog. These are mocked
+  local controls, not evidence of an actual S3 upload or database restore.
+- Full regression on 2026-07-28 after Item 8 local hardening: **538 passed,
+  1 expected SQLite/PostgreSQL row-lock skip, 0 failed**. Django checks,
+  migration drift and Python compilation also passed.
 - Static production build: 177 files copied and 511 post-processed after resolving the Cloudinary override conflict.
 - Django check: no issues.
 - Production-style deploy check: only the intentionally deferred HSTS include-subdomains/preload warnings. Enable these only after all relevant subdomains are HTTPS.

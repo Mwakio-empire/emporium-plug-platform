@@ -309,9 +309,16 @@ BACKUP_S3_PREFIX = env('BACKUP_S3_PREFIX', default='emporium-plug/database').str
 BACKUP_S3_REGION = env('BACKUP_S3_REGION', default='eu-west-1').strip()
 BACKUP_S3_KMS_KEY_ID = env('BACKUP_S3_KMS_KEY_ID', default='').strip()
 PG_DUMP_BINARY = env('PG_DUMP_BINARY', default='pg_dump').strip()
+PG_RESTORE_BINARY = env('PG_RESTORE_BINARY', default='pg_restore').strip()
+BACKUP_PGSSLMODE = env(
+    'BACKUP_PGSSLMODE',
+    default='require' if IS_DEPLOYED_ENVIRONMENT else 'prefer',
+).strip().lower()
 BACKUP_COMMAND_TIMEOUT_SECONDS = env.int('BACKUP_COMMAND_TIMEOUT_SECONDS', default=1800)
 if BACKUP_ENABLED and not BACKUP_S3_BUCKET:
     raise ImproperlyConfigured('BACKUP_S3_BUCKET is required when BACKUP_ENABLED is true.')
+if BACKUP_PGSSLMODE not in {'disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'}:
+    raise ImproperlyConfigured('BACKUP_PGSSLMODE is not a supported PostgreSQL SSL mode.')
 
 # ----------------------------------------------------------------------
 # SENTRY — guarded so it doesn't crash when DSN is empty in development

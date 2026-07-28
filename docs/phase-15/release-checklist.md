@@ -24,11 +24,13 @@ No one may approve release while an unchecked launch blocker remains. Attach evi
 
 ## Production engineering
 
+- [ ] **Funding reminder:** add a valid client-owned Render payment method, review the live monthly Blueprint estimate, and obtain approval before creating billable resources (deferred 2026-07-28).
 - [ ] Separate staging/production DB, Redis, provider, storage, Sentry and secrets exist.
 - [ ] HTTPS/domain, cookies, hosts/origins and proxy verified.
 - [ ] Web, worker and exactly one Beat process healthy; alerts tested.
 - [ ] Persistent media verified across deploys.
 - [ ] Managed PITR enabled; off-site backup policy configured if approved.
+- [ ] Uploaded logical archive passes `verify_database_backup` before restore testing.
 - [ ] Controlled restore succeeds; RPO/RTO measured and accepted.
 - [ ] Deployment and rollback rehearsed; incident contacts filled.
 

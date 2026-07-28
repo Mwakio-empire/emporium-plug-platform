@@ -9,10 +9,7 @@ logger = logging.getLogger(__name__)
 
 @shared_task(name='core.tasks.execute_automated_s3_backup', **TASK_RETRY_KWARGS)
 def execute_automated_s3_backup(self):
-    """
-    Automated S3 database backup task.
-    Called nightly by Celery Beat at 2AM (config/celery.py beat_schedule).
-    """
+    """Create one off-site backup when invoked by the platform scheduler."""
     try:
         from core.backup_services import DatabaseBackupManager
         result = DatabaseBackupManager.execute_backup()

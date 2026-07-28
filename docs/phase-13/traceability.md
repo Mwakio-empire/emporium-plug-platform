@@ -15,7 +15,8 @@
 | Health/readiness | Complete and verified | `/health/live/`, `/health/ready/`, dependency failure tests |
 | Uptime/worker alerts | Documented; external gate | Deployment runbook |
 | Safe migrations/low-downtime deploy | Defined; staging proof required | `preDeployCommand`, readiness health gate, rollback runbook |
-| PostgreSQL-native backups | Complete at application logical-backup layer | `pg_dump` custom format, checksum, S3 encryption/tests |
+| PostgreSQL-native backups | Complete and verified locally at application layer | `pg_dump` custom format, streaming checksum, S3 encryption, temporary-file cleanup and tests |
+| Uploaded archive verification | Complete and verified locally | `verify_database_backup` requires encryption, SHA-256 equality and a readable `pg_restore --list` catalog |
 | Managed PITR | External gate | Paid host configuration and restore evidence required |
 | Restore testing | Blocked on managed staging PostgreSQL | `backup-restore.md` procedure |
 | RPO/RTO | Proposed; client decision | Architecture ADR |
