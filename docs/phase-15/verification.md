@@ -30,3 +30,22 @@ Date: 2026-07-26
 | Full automated suite | 519 run: 518 passed, 1 expected SQLite skip for PostgreSQL row locking |
 
 Expected external gates are recorded in the release checklist; they are not silently converted into local passes.
+
+## Item 10 update — 2026-07-28
+
+- Bounded capacity probe and adversarial JSON-LD escaping tests: 5 passed.
+- Full suite: 550 passed, 1 expected SQLite/PostgreSQL row-lock skip, 0 failed.
+- Bandit 1.9.4: zero medium/high findings after a reviewed, regression-backed
+  suppression for the required escaped JSON-LD safe output.
+- Local GET probe: 100/100 HTTP 200, zero failures, concurrency 10 and
+  1034.62 ms p95 on the Windows Django development server. This validates the
+  tool only and is not production capacity evidence.
+- Current Python dependency audit: `pip-audit 2.10.1 -r requirements.txt`
+  completed successfully and reported no known vulnerabilities. Corrupt local
+  cache entries were ignored and did not prevent the advisory lookup from
+  completing.
+- Current production JavaScript dependency audit:
+  `npm audit --omit=dev --audit-level=moderate` completed successfully and
+  reported 0 vulnerabilities.
+- These dependency and static-analysis checks are automated security controls;
+  they are not evidence of an independent penetration test.

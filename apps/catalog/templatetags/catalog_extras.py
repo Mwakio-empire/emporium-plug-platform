@@ -19,4 +19,7 @@ def json_ld(value):
         .replace('\u2028', '\\u2028')
         .replace('\u2029', '\\u2029')
     )
-    return mark_safe(encoded)
+    # JSON must remain unescaped by Django inside application/ld+json. The
+    # replacements above prevent script termination; test_json_ld.py covers an
+    # adversarial closing-script payload.
+    return mark_safe(encoded)  # nosec B308 B703

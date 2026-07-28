@@ -21,5 +21,7 @@
 | Managed PITR | External gate | Paid host configuration and restore evidence required |
 | Restore testing | Blocked on managed staging PostgreSQL | `backup-restore.md` procedure |
 | RPO/RTO | Proposed; client decision | Architecture ADR |
-| Capacity/load testing | Deferred to stable staging | Explicit release gate |
+| Bounded load-test tooling | Complete and locally verified | GET-only probe with remote-target authorization, redirect prevention, safety caps, threshold exit and unit tests |
+| Production-sized capacity evidence | External gate | Funded staging, approved workload model and `load-security-runbook.md` |
+| Independent penetration test/retest | External gate | Written rules of engagement and independent assessor required; local scans are not certification |
 | Deployment/incident runbooks | Complete as repository artifacts | Phase 13 documentation |

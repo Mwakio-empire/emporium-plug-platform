@@ -26,6 +26,21 @@ npm.cmd run build
   then passed **545 tests with 1 expected SQLite/PostgreSQL row-lock skip and
   0 failures**; Django checks, migration drift, compilation and diff checks
   passed.
+- Item 10 local tool validation: 5 focused tests passed before the complete
+  regression; Bandit 1.9.4 reported zero medium/high findings after reviewing
+  and regression-testing the JSON-LD safe-output exception. A bounded local
+  HTTP probe completed 100 requests at concurrency 10 with 100 HTTP 200
+  responses, 0 failures and 1034.62 ms p95. This is tool validation, not hosted
+  capacity evidence.
+- Complete regression after Item 10 tooling: **550 passed, 1 expected
+  SQLite/PostgreSQL row-lock skip, 0 failed**. Django checks, migration drift,
+  Python compilation, dependency consistency, the frontend build and diff
+  checks passed.
+- Current Item 10 advisory checks on 2026-07-28 passed: `pip-audit 2.10.1`
+  reported no known Python dependency vulnerabilities and
+  `npm audit --omit=dev --audit-level=moderate` reported 0 production
+  JavaScript vulnerabilities. These scans do not replace external penetration
+  testing.
 - Static production build: 177 files copied and 511 post-processed after resolving the Cloudinary override conflict.
 - Django check: no issues.
 - Production-style deploy check: only the intentionally deferred HSTS include-subdomains/preload warnings. Enable these only after all relevant subdomains are HTTPS.

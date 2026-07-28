@@ -31,6 +31,7 @@
 - Scheduled-report email now has validated opt-in Brevo SMTP settings, records configuration/render/provider failures, and prevents blind duplicate sends with a `PROCESSING` delivery state.
 - PostgreSQL logical backups now use streaming checksums and required TLS mode in deployed environments; a separate verification command rejects unencrypted, corrupted or unreadable uploaded archives before restore testing.
 - Added a no-store operational health probe and one-minute Beat-to-worker heartbeat, plus explicit Sentry environment/release and Celery error integration controls.
+- Added a bounded GET-only capacity probe, pinned Python audit tools, CI dependency/static scans and an independent penetration-test rules-of-engagement runbook.
 
 ### Not externally verified
 

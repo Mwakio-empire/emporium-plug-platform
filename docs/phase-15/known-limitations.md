@@ -10,6 +10,7 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 - Scheduled-report email is locally failure-safe and configured for Brevo SMTP, but remains disabled until the business domain/sender and staging provider delivery are manually verified.
 - Managed PostgreSQL PITR and the off-site logical archive have not been restored in a controlled host test. Archive encryption/checksum/catalog verification is implemented locally but is not restore evidence.
 - Monitoring endpoints and the Beat-to-worker heartbeat are implemented locally, but no external uptime, Render or Sentry alert/recovery delivery has been proven because staging is unfunded.
+- The load tool is locally verified, but production-sized staging load, an approved peak-workload model and an independent penetration test/retest are outstanding launch gates.
 - Representative PostgreSQL load/concurrency, Nairobi-to-Frankfurt latency, external security and client UAT remain pending.
 - Local SQLite skips one `select_for_update` test and cannot prove row-lock behavior.
 

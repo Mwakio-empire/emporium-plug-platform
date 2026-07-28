@@ -14,6 +14,7 @@ Status: repository-level production engineering is implemented and locally verif
 - Safe pre-deploy migrations and health-gated web deployment definition.
 - PostgreSQL `pg_dump` custom-format off-site backup service with checksum, encryption and no local fallback.
 - Deployment, rollback, backup/restore and incident operating procedures.
+- Bounded capacity-probe tooling, CI security scans and independent-assessment rules of engagement.
 
 ## External release gates
 
@@ -36,7 +37,7 @@ may be provisioned for controlled acceptance windows, but it must be scaled to
 the production database size before representative load testing. This staging
 cost is documented but has not yet been authorized or incurred.
 
-See [architecture decision](architecture.md), [deployment runbook](deployment-runbook.md), [monitoring runbook](monitoring-runbook.md), [backup/restore runbook](backup-restore.md), [traceability](traceability.md), [defect register](defect-register.md), [verification](verification.md), and [image-search decision](deferred-image-search.md).
+See [architecture decision](architecture.md), [deployment runbook](deployment-runbook.md), [monitoring runbook](monitoring-runbook.md), [load/security runbook](load-security-runbook.md), [backup/restore runbook](backup-restore.md), [traceability](traceability.md), [defect register](defect-register.md), [verification](verification.md), and [image-search decision](deferred-image-search.md).
 
 Before migration or production approval, execute the consolidated
 [manual acceptance guide](../testing/manual-uat-guide.md) and retain a completed

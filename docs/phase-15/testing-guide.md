@@ -40,6 +40,7 @@ Do not perform a real STK Push, send a real customer notification, restore over 
 - Daraja: follow [payment certification](../phase-5/manual-certification-runbook.md).
 - PostgreSQL concurrency: follow [Phase 5 concurrency](../phase-5/postgresql-concurrency.md).
 - Deployment/recovery: follow [deployment](../phase-13/deployment-runbook.md) and [backup/restore](../phase-13/backup-restore.md).
+- Capacity/security: use the bounded probe and independent-assessor rules in the [load/security runbook](../phase-13/load-security-runbook.md). Local scan results never replace a staging penetration test.
 - Accessibility and responsive UI: execute critical journeys with keyboard, 390-pixel mobile and desktop viewports; retain screenshots and console results.
 
 ## Failure handling
