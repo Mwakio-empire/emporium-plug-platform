@@ -46,12 +46,6 @@ envVarGroups:
         sync: false
       - key: EMAIL_TIMEOUT
         value: "20"
-      - key: CLOUDINARY_CLOUD_NAME
-        sync: false
-      - key: CLOUDINARY_API_KEY
-        sync: false
-      - key: CLOUDINARY_API_SECRET
-        sync: false
       - key: NOTIFICATION_PROVIDER
         sync: false
       - key: AFRICASTALKING_USERNAME
@@ -106,6 +100,8 @@ services:
           type: keyvalue
           name: emporium-keyvalue
           property: connectionString
+      - key: CLOUDINARY_URL
+        sync: false
 
   - type: worker
     name: emporium-worker
@@ -127,6 +123,8 @@ services:
           type: keyvalue
           name: emporium-keyvalue
           property: connectionString
+      - key: CLOUDINARY_URL
+        sync: false
 
   - type: worker
     name: emporium-beat
@@ -148,6 +146,8 @@ services:
           type: keyvalue
           name: emporium-keyvalue
           property: connectionString
+      - key: CLOUDINARY_URL
+        sync: false
 
   - type: keyvalue
     name: emporium-keyvalue

@@ -2,7 +2,18 @@ import os
 import subprocess
 import sys
 
+import cloudinary
+from django.conf import settings
 from django.test import SimpleTestCase
+
+
+class TestMediaIsolationTests(SimpleTestCase):
+    def test_test_suite_uses_synthetic_cloudinary_identity_and_local_storage(self):
+        self.assertEqual(cloudinary.config().cloud_name, 'test-cloud')
+        self.assertEqual(
+            settings.STORAGES['default']['BACKEND'],
+            'django.core.files.storage.FileSystemStorage',
+        )
 
 
 class DeployedMediaSettingsTests(SimpleTestCase):
@@ -33,35 +44,106 @@ class DeployedMediaSettingsTests(SimpleTestCase):
             check=False,
         )
 
-    def test_staging_can_explicitly_boot_with_ephemeral_media(self):
+    def test_staging_can_boot_with_cloudinary_url(self):
         result = self.import_settings(
             ENVIRONMENT='staging',
-            STAGING_ALLOW_EPHEMERAL_MEDIA='True',
+            CLOUDINARY_URL='cloudinary://key:secret@staging-cloud',
+            PRIVACY_CONTROLLER_NAME='Staging synthetic data only',
+            PRIVACY_CONTACT_EMAIL='staging-invalid@example.invalid',
+            PRIVACY_NOTICE_APPROVED='False',
+            NOTIFICATION_PROVIDER='console',
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
-    def test_staging_without_cloudinary_or_escape_hatch_is_rejected(self):
+    def test_staging_without_cloudinary_is_rejected(self):
         result = self.import_settings(
             ENVIRONMENT='staging',
-            STAGING_ALLOW_EPHEMERAL_MEDIA='False',
         )
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('requires Cloudinary credentials', result.stderr)
 
-    def test_production_cannot_enable_staging_escape_hatch(self):
+    def test_production_without_cloudinary_is_rejected(self):
         result = self.import_settings(
             ENVIRONMENT='production',
-            STAGING_ALLOW_EPHEMERAL_MEDIA='True',
             PRIVACY_CONTROLLER_NAME='Production Controller Test',
             PRIVACY_CONTACT_EMAIL='privacy@example.test',
             PRIVACY_NOTICE_APPROVED='True',
             NOTIFICATION_PROVIDER='africastalking',
+            AFRICASTALKING_USERNAME='emporium-test',
+            AFRICASTALKING_API_KEY='not-a-real-provider-key',
         )
 
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn(
-            'STAGING_ALLOW_EPHEMERAL_MEDIA is restricted to the staging environment',
-            result.stderr,
-        )
+        self.assertIn('requires Cloudinary credentials', result.stderr)
+
+    def production_environment(self, **overrides):
+        values = {
+            'ENVIRONMENT': 'production',
+            'CLOUDINARY_URL': 'cloudinary://key:secret@production-cloud',
+            'PRIVACY_CONTROLLER_NAME': 'Approved Controller',
+            'PRIVACY_CONTACT_EMAIL': 'privacy@example.test',
+            'PRIVACY_NOTICE_APPROVED': 'True',
+            'NOTIFICATION_PROVIDER': 'africastalking',
+            'AFRICASTALKING_USERNAME': 'emporium-test',
+            'AFRICASTALKING_API_KEY': 'not-a-real-provider-key',
+        }
+        values.update(overrides)
+        return values
+
+    def test_production_requires_controller_identity_and_contact(self):
+        result = self.import_settings(**self.production_environment(
+            PRIVACY_CONTROLLER_NAME='',
+            PRIVACY_CONTACT_EMAIL='',
+        ))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('approved controller name and privacy contact', result.stderr)
+
+    def test_production_requires_approved_privacy_notice(self):
+        result = self.import_settings(**self.production_environment(
+            PRIVACY_NOTICE_APPROVED='False',
+        ))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('approved privacy notice', result.stderr)
+
+    def test_production_requires_valid_privacy_contact_email(self):
+        result = self.import_settings(**self.production_environment(
+            PRIVACY_CONTACT_EMAIL='not-an-email-address',
+        ))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('valid approved privacy contact email', result.stderr)
+
+    def test_production_rejects_console_and_unknown_notification_providers(self):
+        console = self.import_settings(**self.production_environment(
+            NOTIFICATION_PROVIDER='console',
+        ))
+        unsupported = self.import_settings(**self.production_environment(
+            NOTIFICATION_PROVIDER='invented-provider',
+        ))
+
+        self.assertNotEqual(console.returncode, 0)
+        self.assertIn('outbound notification provider', console.stderr)
+        self.assertNotEqual(unsupported.returncode, 0)
+        self.assertIn('NOTIFICATION_PROVIDER is not supported', unsupported.stderr)
+
+    def test_africas_talking_requires_credentials_and_real_production_account(self):
+        missing_key = self.import_settings(**self.production_environment(
+            AFRICASTALKING_API_KEY='',
+        ))
+        sandbox = self.import_settings(**self.production_environment(
+            AFRICASTALKING_USERNAME='sandbox',
+        ))
+
+        self.assertNotEqual(missing_key.returncode, 0)
+        self.assertIn('username and API key are required', missing_key.stderr)
+        self.assertNotEqual(sandbox.returncode, 0)
+        self.assertIn('cannot use', sandbox.stderr)
+
+    def test_production_boots_with_approved_privacy_and_provider_configuration(self):
+        result = self.import_settings(**self.production_environment())
+
+        self.assertEqual(result.returncode, 0, result.stderr)

@@ -12,7 +12,12 @@ class RenderStagingBlueprintTests(SimpleTestCase):
         ).read_text(encoding='utf-8')
 
     def test_does_not_use_ignored_secret_placeholders_in_environment_group(self):
-        self.assertNotIn('sync: false', self.blueprint)
+        environment_group = self.blueprint.split('\nservices:', 1)[0]
+        self.assertNotIn('sync: false', environment_group)
+
+    def test_cloudinary_secret_is_required_by_every_process_service(self):
+        self.assertEqual(self.blueprint.count('key: CLOUDINARY_URL'), 3)
+        self.assertEqual(self.blueprint.count('sync: false'), 3)
 
     def test_uses_deterministic_https_staging_origin(self):
         hostname = 'emporium-plug-ke-staging-web.onrender.com'
@@ -43,4 +48,20 @@ class RenderStagingBlueprintTests(SimpleTestCase):
     def test_staging_external_integrations_are_safely_disabled(self):
         self.assertIn('value: console', self.blueprint)
         self.assertIn('value: "False"', self.blueprint)
-        self.assertIn('STAGING_ALLOW_EPHEMERAL_MEDIA', self.blueprint)
+        self.assertNotIn('STAGING_ALLOW_EPHEMERAL_MEDIA', self.blueprint)
+
+
+class RenderProductionMediaBlueprintTests(SimpleTestCase):
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.blueprint = (
+            Path(__file__).resolve().parents[2] / 'render.yaml'
+        ).read_text(encoding='utf-8')
+
+    def test_cloudinary_secret_is_not_placed_in_environment_group(self):
+        environment_group = self.blueprint.split('\nservices:', 1)[0]
+        self.assertNotIn('CLOUDINARY_', environment_group)
+
+    def test_cloudinary_secret_is_required_by_every_process_service(self):
+        self.assertEqual(self.blueprint.count('key: CLOUDINARY_URL'), 3)

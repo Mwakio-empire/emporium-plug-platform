@@ -49,3 +49,75 @@ Expected external gates are recorded in the release checklist; they are not sile
   reported 0 vulnerabilities.
 - These dependency and static-analysis checks are automated security controls;
   they are not evidence of an independent penetration test.
+
+## Item 11 update — 2026-07-28
+
+- Deployed environments now fail closed unless Cloudinary is configured; the
+  temporary staging filesystem exception was removed.
+- Eighteen focused deployment-setting, Blueprint, image-validation and
+  provider-cleanup tests passed.
+- The configured client Cloudinary account passed a controlled synthetic
+  write/delivery/delete round trip: HTTPS delivery returned 68 bytes from
+  `res.cloudinary.com`, and the verification asset was deleted.
+- The local database has one product, no product image and no gallery images,
+  so no catalog-media migration is required.
+- Persistence through an actual Render redeploy cannot be evidenced until the
+  funded staging environment exists.
+- Complete regression: 556 passed, 1 expected SQLite/PostgreSQL row-lock skip,
+  0 failed.
+
+## Item 12 update — 2026-07-28
+
+- Both staging and production Blueprints pass Render's current official JSON
+  Schema locally; CI downloads the public schema, verifies its pinned SHA-256,
+  and validates the local files without uploading them.
+- Render CLI v2.22.0 was downloaded from its official release and matched the
+  publisher's SHA-256.
+- The client explicitly authorized workspace-aware validation. Both files
+  reached Render successfully and returned only `need_payment_info` for their
+  five paid resources; no other provider validation error was reported and no
+  resources were created.
+- The temporary Render CLI authentication was logged out after validation and
+  the verified temporary tooling was removed.
+
+## Item 13 update — 2026-07-28
+
+- Staging remains explicitly synthetic and non-delivering: an unapproved
+  privacy notice and the console notification provider are permitted there.
+- Production now rejects absent or invalid controller/privacy-contact data,
+  an unapproved notice, console or unknown notification providers, incomplete
+  Africa's Talking credentials and the Africa's Talking sandbox account.
+- Thirty-five focused tests passed before the final email-format gate; all 9
+  deployment-setting tests then passed.
+- Complete regression: 562 passed, 1 expected SQLite/PostgreSQL row-lock skip,
+  0 failed.
+
+## Item 14 update — 2026-07-28
+
+- The client-owned private GitHub remote and authenticated CLI access were
+  verified without exposing the authentication token.
+- GitHub Actions run `30362283936` failed at the Django test step with two
+  `CloudinaryField` URL-generation errors because CI had no Cloudinary cloud
+  name. Dependency installation, compilation, Django checks and migration
+  drift had passed before that failure.
+- Automated tests now force local media storage and a synthetic Cloudinary
+  identity. The two formerly failing tests and the new isolation regression
+  test pass.
+- Complete local regression: **563 passed, 1 expected SQLite/PostgreSQL
+  row-lock skip, 0 failed**. Django checks, migration drift, compilation,
+  Bandit medium/high analysis, `collectstatic` and the frontend build passed.
+- A green remote CI result requires committing and pushing this reviewed batch;
+  it is not claimed from local execution alone.
+
+## Item 15 update — 2026-07-28
+
+- All 28 required handover categories remain mapped to their current source of
+  truth. Production/provider claims remain clearly separated from local
+  evidence.
+- All project-local links across 115 Markdown files resolve after the final
+  documentation updates.
+- The funding reminder remains a mandatory release-checklist gate: add a valid
+  client-owned Render payment method, review the current estimate and approve
+  resource creation before deployment.
+- Final documentation/link and dependency-audit results are recorded only after
+  their commands complete; no unavailable external result is treated as a pass.

@@ -5,7 +5,10 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 ## Production and external proof
 
 - Render staging/production resources have not been provisioned. The private repository and staging Blueprint are prepared, but deployment was explicitly deferred on 2026-07-28 because the client-owned Render account requires a funded payment method. This is a mandatory end-of-project reminder and launch blocker.
-- The first staging infrastructure bootstrap may use explicitly enabled ephemeral media. Uploaded files will not survive a redeploy until item 11 configures Cloudinary; production cannot enable this setting.
+- Both Blueprints pass Render's official schema locally. Authorized Render workspace validation returned only `need_payment_info` for each paid resource; add a valid client-owned payment method and repeat validation immediately before sync.
+- Cloudinary write, HTTPS delivery and deletion were verified with a synthetic image on 2026-07-28. Persistence across a Render redeploy still requires funded staging evidence; staging and production now fail closed without Cloudinary credentials.
+- The final Items 11–15 batch passes the complete local test suite, but GitHub
+  Actions cannot be marked green until that batch is committed and pushed.
 - Daraja and notification providers are verified through mocks/local controls, not complete provider certification.
 - Scheduled-report email is locally failure-safe and configured for Brevo SMTP, but remains disabled until the business domain/sender and staging provider delivery are manually verified.
 - Managed PostgreSQL PITR and the off-site logical archive have not been restored in a controlled host test. Archive encryption/checksum/catalog verification is implemented locally but is not restore evidence.

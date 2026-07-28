@@ -5,7 +5,8 @@ import environ
 import os
 import sys
 from datetime import timedelta
-from django.core.exceptions import ImproperlyConfigured
+from django.core.exceptions import ImproperlyConfigured, ValidationError
+from django.core.validators import validate_email
 from django.utils.csp import CSP
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -180,7 +181,12 @@ CLOUDINARY_STORAGE = {
     'CLOUD_NAME': env('CLOUDINARY_CLOUD_NAME', default='sandbox_cloud'),
     'API_KEY': env('CLOUDINARY_API_KEY', default=''),
     'API_SECRET': env('CLOUDINARY_API_SECRET', default=''),
+    'SECURE': True,
 }
+CLOUDINARY_URL = env('CLOUDINARY_URL', default='').strip()
+CLOUDINARY_CONFIGURED = bool(CLOUDINARY_URL) or all(
+    CLOUDINARY_STORAGE[key] for key in ('CLOUD_NAME', 'API_KEY', 'API_SECRET')
+)
 
 # ----------------------------------------------------------------------
 # STORAGE BACKENDS (AWS S3 or local fallback)
@@ -281,6 +287,12 @@ if IS_PRODUCTION and not IS_TESTING:
         raise ImproperlyConfigured(
             'Production requires the approved controller name and privacy contact.'
         )
+    try:
+        validate_email(PRIVACY_CONTACT_EMAIL)
+    except ValidationError as exc:
+        raise ImproperlyConfigured(
+            'Production requires a valid approved privacy contact email.'
+        ) from exc
     if not PRIVACY_NOTICE_APPROVED:
         raise ImproperlyConfigured(
             'Production requires an approved privacy notice before customer data is collected.'
@@ -288,8 +300,11 @@ if IS_PRODUCTION and not IS_TESTING:
 
 # Outbound customer contact is suppressed by default. Production must opt into
 # a configured provider explicitly rather than contacting real numbers by accident.
-NOTIFICATION_PROVIDER = env('NOTIFICATION_PROVIDER', default='console')
-AFRICASTALKING_USERNAME = env('AFRICASTALKING_USERNAME', default='sandbox')
+NOTIFICATION_PROVIDER = env('NOTIFICATION_PROVIDER', default='console').strip().lower()
+SUPPORTED_NOTIFICATION_PROVIDERS = {'console', 'africastalking'}
+if NOTIFICATION_PROVIDER not in SUPPORTED_NOTIFICATION_PROVIDERS:
+    raise ImproperlyConfigured('NOTIFICATION_PROVIDER is not supported.')
+AFRICASTALKING_USERNAME = env('AFRICASTALKING_USERNAME', default='sandbox').strip()
 AFRICASTALKING_API_KEY = env('AFRICASTALKING_API_KEY', default='')
 AFRICASTALKING_SENDER_ID = env('AFRICASTALKING_SENDER_ID', default='')
 WHATSAPP_FALLBACK_ENABLED = env.bool('WHATSAPP_FALLBACK_ENABLED', default=False)
@@ -303,6 +318,15 @@ if INBOUND_SMS_ENABLED and len(INBOUND_SMS_WEBHOOK_TOKEN) < 32:
     )
 if IS_PRODUCTION and not IS_TESTING and NOTIFICATION_PROVIDER == 'console':
     raise ImproperlyConfigured('Production must configure an outbound notification provider.')
+if NOTIFICATION_PROVIDER == 'africastalking':
+    if not AFRICASTALKING_USERNAME or not AFRICASTALKING_API_KEY:
+        raise ImproperlyConfigured(
+            "Africa's Talking username and API key are required when its provider is enabled."
+        )
+    if IS_PRODUCTION and not IS_TESTING and AFRICASTALKING_USERNAME.lower() == 'sandbox':
+        raise ImproperlyConfigured(
+            "Production cannot use the Africa's Talking sandbox account."
+        )
 WHATSAPP_ORDER_PHONE = env(
     'WHATSAPP_ORDER_PHONE', default='+254116153335',
 ).strip()
@@ -392,20 +416,7 @@ SECURE_CSP = {
     'font-src': [CSP.SELF, 'data:'],
     'connect-src': [CSP.SELF],
 }
-STAGING_ALLOW_EPHEMERAL_MEDIA = env.bool(
-    'STAGING_ALLOW_EPHEMERAL_MEDIA',
-    default=False,
-)
-if STAGING_ALLOW_EPHEMERAL_MEDIA and not IS_STAGING:
-    raise ImproperlyConfigured(
-        'STAGING_ALLOW_EPHEMERAL_MEDIA is restricted to the staging environment.'
-    )
-if (
-    not DEBUG
-    and not IS_TESTING
-    and not all(CLOUDINARY_STORAGE.values())
-    and not (IS_STAGING and STAGING_ALLOW_EPHEMERAL_MEDIA)
-):
+if not DEBUG and not IS_TESTING and not CLOUDINARY_CONFIGURED:
     raise ImproperlyConfigured(
         'Production/staging requires Cloudinary credentials for persistent catalog images.'
     )
@@ -414,6 +425,20 @@ if (
 # TEST OVERRIDES — use fast in-memory cache during test runs
 # ----------------------------------------------------------------------
 if IS_TESTING:
+    # CloudinaryField builds image URLs through Cloudinary's global config even
+    # when Django uses local storage. Keep tests deterministic and ensure they
+    # never inherit a developer's real Cloudinary account.
+    import cloudinary
+
+    cloudinary.config(
+        cloud_name='test-cloud',
+        api_key='test-key',
+        api_secret='test-secret',
+        secure=True,
+    )
+    STORAGES['default'] = {
+        'BACKEND': 'django.core.files.storage.FileSystemStorage',
+    }
     STORAGES['staticfiles'] = {
         'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
     }

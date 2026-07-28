@@ -34,6 +34,15 @@ jobs:
       - run: python -m pip check
       - run: python -m pip_audit -r requirements.txt --progress-spinner off
       - run: python -m bandit -r apps config -ll -q
+      - name: Validate Render Blueprint schemas locally
+        run: |
+          curl --fail --silent --show-error --location \
+            https://render.com/schema/render.yaml.json \
+            --output /tmp/render-schema.json
+          echo "665539cb0c191856ba38d292b985a963880bb69b030d666e5fe7788e78e7e696  /tmp/render-schema.json" \
+            | sha256sum --check --strict
+          python scripts/validate_render_blueprints.py \
+            --schema /tmp/render-schema.json render.staging.yaml render.yaml
       - run: python -m compileall -q apps config
       - run: python manage.py check
       - run: python manage.py makemigrations --check --dry-run

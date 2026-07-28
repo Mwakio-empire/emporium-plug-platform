@@ -32,6 +32,11 @@
 - PostgreSQL logical backups now use streaming checksums and required TLS mode in deployed environments; a separate verification command rejects unencrypted, corrupted or unreadable uploaded archives before restore testing.
 - Added a no-store operational health probe and one-minute Beat-to-worker heartbeat, plus explicit Sentry environment/release and Celery error integration controls.
 - Added a bounded GET-only capacity probe, pinned Python audit tools, CI dependency/static scans and an independent penetration-test rules-of-engagement runbook.
+- Removed disposable staging media, required Cloudinary in every deployed environment, added safe single-secret deployment wiring and verified a synthetic upload/delivery/delete round trip.
+- Isolated automated tests from developer and production Cloudinary accounts by
+  using local test storage and a synthetic URL-generation identity.
+- Added checksum-pinned local validation of both Render Blueprints against Render's official JSON Schema without exporting repository configuration.
+- Hardened deployed privacy and notification fail-fast gates while preserving suppressed synthetic-data staging operation.
 
 ### Not externally verified
 

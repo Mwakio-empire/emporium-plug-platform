@@ -1,8 +1,7 @@
 # Isolated pre-production environment. Sync this Blueprint separately from
 # render.yaml and never enter production credentials or customer data here.
 # Email, customer notifications, Sentry and Daraja credentials remain disabled
-# until their later certification items. Media is intentionally ephemeral only
-# for the infrastructure bootstrap and must move to Cloudinary in item 11.
+# until their later certification items. Cloudinary media is mandatory.
 envVarGroups:
   - name: emporium-staging-settings
     envVars:
@@ -32,8 +31,6 @@ envVarGroups:
         value: "False"
       - key: EMAIL_BACKEND
         value: django.core.mail.backends.console.EmailBackend
-      - key: STAGING_ALLOW_EPHEMERAL_MEDIA
-        value: "True"
       - key: NOTIFICATION_PROVIDER
         value: console
       - key: WHATSAPP_FALLBACK_ENABLED
@@ -79,6 +76,10 @@ services:
           type: keyvalue
           name: emporium-staging-keyvalue
           property: connectionString
+      # Enter the same secret URL for web, worker and Beat during initial
+      # Blueprint creation. Render ignores new sync:false values on later syncs.
+      - key: CLOUDINARY_URL
+        sync: false
 
   - type: worker
     name: emporium-plug-ke-staging-worker
@@ -100,6 +101,8 @@ services:
           type: keyvalue
           name: emporium-staging-keyvalue
           property: connectionString
+      - key: CLOUDINARY_URL
+        sync: false
 
   - type: worker
     name: emporium-plug-ke-staging-beat
@@ -121,6 +124,8 @@ services:
           type: keyvalue
           name: emporium-staging-keyvalue
           property: connectionString
+      - key: CLOUDINARY_URL
+        sync: false
 
   - type: keyvalue
     name: emporium-staging-keyvalue

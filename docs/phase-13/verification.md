@@ -41,7 +41,36 @@ npm.cmd run build
   `npm audit --omit=dev --audit-level=moderate` reported 0 production
   JavaScript vulnerabilities. These scans do not replace external penetration
   testing.
+- Item 11 persistent-media checks on 2026-07-28: 18 focused settings, Blueprint,
+  upload-validation and cleanup tests passed. A controlled live Cloudinary round trip
+  uploaded a synthetic 1×1 PNG, delivered 68 bytes over HTTPS from
+  `res.cloudinary.com`, and confirmed deletion. No catalog images required
+  migration. Render redeploy persistence remains a funded-staging acceptance
+  gate.
+- Complete regression after Item 11: **556 passed, 1 expected
+  SQLite/PostgreSQL row-lock skip, 0 failed**. Django checks, migration drift,
+  Bandit medium/high analysis and diff checks passed.
+- Item 12 local Blueprint validation on 2026-07-28: `render.staging.yaml` and
+  `render.yaml` both passed Render's official JSON Schema with verified schema
+  SHA-256 `665539cb0c191856ba38d292b985a963880bb69b030d666e5fe7788e78e7e696`.
+  The client then explicitly authorized provider validation. Render CLI 2.22.0
+  validated both files against Michael's workspace and returned only
+  `need_payment_info` for web, worker, Beat, Key Value and PostgreSQL in each
+  Blueprint. No resources were created. The temporary CLI token was logged out
+  and the checksum-verified temporary executable/schema files were removed.
+- Item 13 staging/production safety checks: 35 focused privacy, notification,
+  Blueprint and settings tests passed, followed by 9 focused fail-closed
+  deployment tests after contact-email validation was added. Production now
+  rejects missing or invalid privacy approval, console/unknown providers,
+  missing Africa's Talking credentials and sandbox credentials.
+- Complete regression after Item 13: **562 passed, 1 expected
+  SQLite/PostgreSQL row-lock skip, 0 failed**. Django checks, migration drift,
+  Bandit medium/high analysis and diff checks passed.
 - Static production build: 177 files copied and 511 post-processed after resolving the Cloudinary override conflict.
+- CI media isolation: test settings now force local filesystem storage and a
+  synthetic Cloudinary identity. This fixes Cloudinary URL generation without
+  exposing credentials or contacting the live media account; staging and
+  production still fail closed when their real credentials are absent.
 - Django check: no issues.
 - Production-style deploy check: only the intentionally deferred HSTS include-subdomains/preload warnings. Enable these only after all relevant subdomains are HTTPS.
 

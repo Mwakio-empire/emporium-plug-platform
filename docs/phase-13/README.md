@@ -19,7 +19,12 @@ Status: repository-level production engineering is implemented and locally verif
 ## External release gates
 
 - Approval of the custom domain and named operational owners. Frankfurt and the cost-conscious Render budget were approved on 2026-07-26.
-- A usable Git remote and authenticated Render account/CLI session for Blueprint validation and sync.
+- A green GitHub Actions run on the final release revision. The client-owned
+  remote and CLI access are verified; the final unpushed batch still requires
+  remote CI execution.
+- A funded Render account for Blueprint sync. Workspace validation succeeded,
+  but Render requires client-owned payment information before creating the
+  proposed resources.
 - Separate staging and production projects/databases/secrets.
 - Paid managed PostgreSQL PITR enabled and a controlled restore proven.
 - S3 lifecycle/retention and least-privilege backup credentials if logical off-site backups are enabled.
@@ -37,7 +42,7 @@ may be provisioned for controlled acceptance windows, but it must be scaled to
 the production database size before representative load testing. This staging
 cost is documented but has not yet been authorized or incurred.
 
-See [architecture decision](architecture.md), [deployment runbook](deployment-runbook.md), [monitoring runbook](monitoring-runbook.md), [load/security runbook](load-security-runbook.md), [backup/restore runbook](backup-restore.md), [traceability](traceability.md), [defect register](defect-register.md), [verification](verification.md), and [image-search decision](deferred-image-search.md).
+See [architecture decision](architecture.md), [deployment runbook](deployment-runbook.md), [media runbook](media-storage-runbook.md), [monitoring runbook](monitoring-runbook.md), [load/security runbook](load-security-runbook.md), [backup/restore runbook](backup-restore.md), [traceability](traceability.md), [defect register](defect-register.md), [verification](verification.md), and [image-search decision](deferred-image-search.md).
 
 Before migration or production approval, execute the consolidated
 [manual acceptance guide](../testing/manual-uat-guide.md) and retain a completed
