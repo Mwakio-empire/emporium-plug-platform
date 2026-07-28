@@ -35,6 +35,11 @@ class RenderStagingBlueprintTests(SimpleTestCase):
         )
         self.assertIn('persistenceMode: journal-snapshot', self.blueprint)
 
+    def test_monitoring_uses_readiness_for_routing_and_async_heartbeat_for_operations(self):
+        self.assertIn('healthCheckPath: /health/ready/', self.blueprint)
+        self.assertNotIn('healthCheckPath: /health/operations/', self.blueprint)
+        self.assertIn('ASYNC_HEARTBEAT_MAX_AGE_SECONDS', self.blueprint)
+
     def test_staging_external_integrations_are_safely_disabled(self):
         self.assertIn('value: console', self.blueprint)
         self.assertIn('value: "False"', self.blueprint)

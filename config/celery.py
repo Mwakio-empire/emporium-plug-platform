@@ -29,6 +29,10 @@ def debug_task(self):
 
 # Beat schedules are centralized here. Run exactly one Beat process.
 app.conf.beat_schedule = {
+    'record-async-pipeline-heartbeat-every-minute': {
+        'task': 'core.tasks.record_async_pipeline_heartbeat',
+        'schedule': crontab(minute='*'),
+    },
     'dispatch-due-scheduled-reports-hourly': {
         'task': 'reports.tasks.dispatch_due_scheduled_reports',
         'schedule': crontab(minute=5),

@@ -76,6 +76,10 @@ envVarGroups:
         sync: false
       - key: SENTRY_SEND_DEFAULT_PII
         value: "False"
+      - key: SENTRY_ENVIRONMENT
+        value: production
+      - key: ASYNC_HEARTBEAT_MAX_AGE_SECONDS
+        value: "600"
       - key: BACKUP_ENABLED
         value: "False"
 

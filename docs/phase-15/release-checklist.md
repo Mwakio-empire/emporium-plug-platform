@@ -28,6 +28,7 @@ No one may approve release while an unchecked launch blocker remains. Attach evi
 - [ ] Separate staging/production DB, Redis, provider, storage, Sentry and secrets exist.
 - [ ] HTTPS/domain, cookies, hosts/origins and proxy verified.
 - [ ] Web, worker and exactly one Beat process healthy; alerts tested.
+- [ ] `/health/live/`, `/health/ready/` and `/health/operations/` failure and recovery drills have timestamped evidence and named recipients.
 - [ ] Persistent media verified across deploys.
 - [ ] Managed PITR enabled; off-site backup policy configured if approved.
 - [ ] Uploaded logical archive passes `verify_database_backup` before restore testing.

@@ -6,6 +6,7 @@ Celery uses Redis in deployed environments. Exactly one Beat process owns schedu
 
 | Minute/time | Task | Purpose | Operational alert |
 |---|---|---|---|
+| Every minute | `core.tasks.record_async_pipeline_heartbeat` | Prove Beat, broker and a worker completed the shared asynchronous path. | `/health/operations/` becomes unavailable when no task completes within ten minutes. |
 | Every 5 minutes | `orders.cancel_abandoned_pending_orders` | Cancel unpaid STK orders after the configured timeout and release reservations once. | Alert on repeated per-order failures or growing pending backlog. |
 | Hourly at `:00` | `inventory.send_branch_low_stock_alerts` | Detect low-stock transitions and suppress repeated alerts until recovery. | Alert when task is missing for more than two intervals. |
 | Hourly at `:05` | `reports.tasks.dispatch_due_scheduled_reports` | Dispatch only active, configured and due schedules. | `PROCESSING` prevents blind duplicate sends; `FAILED` requires manual follow-up. Enable email only after provider certification. |
@@ -24,4 +25,4 @@ Backups are deliberately not scheduled in Beat. Production uses one platform sch
 
 ## Operator checks
 
-Monitor worker heartbeat, Beat heartbeat, queue depth, oldest queued task, retry/exhaustion count and scheduled-task last-success time. A queue call failure must not roll back a completed order/inventory transition; it creates an operational follow-up instead.
+Monitor the combined Beat-to-worker heartbeat, worker/Beat process state, queue depth, oldest queued task, retry/exhaustion count and scheduled-task last-success time. The shared heartbeat detects pipeline failure but does not by itself identify which process failed. A queue call failure must not roll back a completed order/inventory transition; it creates an operational follow-up instead.

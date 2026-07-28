@@ -6,7 +6,7 @@ Status: repository-level production engineering is implemented and locally verif
 
 - Explicit development, test, staging and production environment identity.
 - Gunicorn production server and WhiteNoise compressed/hashed static assets.
-- Dependency-aware readiness and process-only liveness endpoints.
+- Dependency-aware readiness, process-only liveness and Beat-to-worker operational health endpoints.
 - Request correlation IDs and structured JSON production logs.
 - HTTPS site/origin, proxy, host, privacy, Redis, notification and persistent-image fail-fast configuration.
 - Render Blueprint recommendation for separate web, Celery worker, Celery Beat, paid PostgreSQL and persistent no-eviction Key Value services.
@@ -22,7 +22,7 @@ Status: repository-level production engineering is implemented and locally verif
 - Separate staging and production projects/databases/secrets.
 - Paid managed PostgreSQL PITR enabled and a controlled restore proven.
 - S3 lifecycle/retention and least-privilege backup credentials if logical off-site backups are enabled.
-- Uptime, web, worker, Beat, database and Redis alerts configured and tested.
+- Hosted uptime, web, worker, Beat, database and Redis alerts configured and tested. Repository-level probes and failure drills are implemented, but no hosted alert delivery is claimed.
 - Staging load test, external security assessment and provider certification.
 - Client privacy/legal decisions from Phase 12.
 - Client UAT and explicit live M-Pesa authorization.
@@ -36,7 +36,7 @@ may be provisioned for controlled acceptance windows, but it must be scaled to
 the production database size before representative load testing. This staging
 cost is documented but has not yet been authorized or incurred.
 
-See [architecture decision](architecture.md), [deployment runbook](deployment-runbook.md), [backup/restore runbook](backup-restore.md), [traceability](traceability.md), [defect register](defect-register.md), [verification](verification.md), and [image-search decision](deferred-image-search.md).
+See [architecture decision](architecture.md), [deployment runbook](deployment-runbook.md), [monitoring runbook](monitoring-runbook.md), [backup/restore runbook](backup-restore.md), [traceability](traceability.md), [defect register](defect-register.md), [verification](verification.md), and [image-search decision](deferred-image-search.md).
 
 Before migration or production approval, execute the consolidated
 [manual acceptance guide](../testing/manual-uat-guide.md) and retain a completed

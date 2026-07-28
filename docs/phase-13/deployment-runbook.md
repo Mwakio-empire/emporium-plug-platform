@@ -10,8 +10,8 @@
 6. Deploy. The web pre-deploy command runs migrations before traffic switches; `/health/ready/` must return 200.
 7. Verify the one-time initial deploy hook created the approved OTC Mall/S18/B03 records. Also run `python manage.py configure_business_branches --dry-run` as evidence. Do not seed staff, opening balances or customer data.
 8. Verify web, worker and Beat logs, static assets, Cloudinary upload and all critical browser journeys.
-9. Configure external uptime monitoring of `/health/live/`; use `/health/ready/` for deployment/readiness decisions.
-10. Configure Sentry release/environment tagging and alerts without PII.
+9. Configure external uptime monitoring of `/health/live/` and `/health/operations/`; keep `/health/ready/` for deployment/readiness decisions. Execute the monitoring runbook's worker, Beat, database and Key Value failure/recovery drills.
+10. Configure Sentry Django/Celery release/environment tagging and alerts without PII.
 11. Run load, security, backup/restore and provider sandbox acceptance before production approval.
 12. Scale staging PostgreSQL to Basic-1gb before representative production-capacity testing, then record the tested sizes with the results.
 

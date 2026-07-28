@@ -48,6 +48,10 @@ envVarGroups:
         value: https://emporium-plug-ke-staging-web.onrender.com/payments/mpesa/callback/
       - key: SENTRY_SEND_DEFAULT_PII
         value: "False"
+      - key: SENTRY_ENVIRONMENT
+        value: staging
+      - key: ASYNC_HEARTBEAT_MAX_AGE_SECONDS
+        value: "600"
       - key: BACKUP_ENABLED
         value: "False"
 

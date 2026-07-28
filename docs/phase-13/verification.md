@@ -22,6 +22,10 @@ npm.cmd run build
 - Full regression on 2026-07-28 after Item 8 local hardening: **538 passed,
   1 expected SQLite/PostgreSQL row-lock skip, 0 failed**. Django checks,
   migration drift and Python compilation also passed.
+- Item 9 monitoring regression: **16 focused tests passed**. The complete suite
+  then passed **545 tests with 1 expected SQLite/PostgreSQL row-lock skip and
+  0 failures**; Django checks, migration drift, compilation and diff checks
+  passed.
 - Static production build: 177 files copied and 511 post-processed after resolving the Cloudinary override conflict.
 - Django check: no issues.
 - Production-style deploy check: only the intentionally deferred HSTS include-subdomains/preload warnings. Enable these only after all relevant subdomains are HTTPS.
@@ -42,7 +46,7 @@ npm.cmd run build
 - Django checks, migration drift and compilation passed.
 - The Blueprint now uses deterministic HTTPS staging origins, persistent `noeviction` Key Value, schema-gated worker/Beat startup and a one-time approved branch configuration hook.
 - Outbound email, SMS, Sentry and Daraja credentials are intentionally absent from the infrastructure bootstrap and remain later certification gates.
-- No Render resources were created: the Render browser session is signed out, the repository has no Git remote, and no billing confirmation has been presented.
+- No Render resources were created. The private GitHub repository and staging Blueprint exist, but provisioning was deferred on 2026-07-28 because the client-owned Render account has no funded payment method.
 - Render CLI/API validation remains required after account authentication because it performs schema, semantic-plan and workspace-conflict validation that local text tests cannot replace.
 
 Gunicorn cannot be meaningfully exercised on this Windows development host. Its process lifecycle, graceful shutdown and health-gated routing remain staging acceptance items on Linux.
@@ -51,7 +55,7 @@ Gunicorn cannot be meaningfully exercised on this Windows development host. Its 
 
 - Connect a private Git remote with CI, authenticate Render, validate the Blueprint against the selected workspace, review the live cost summary and explicitly approve resource creation.
 - Staging browser journeys and sandbox providers.
-- Continuous uptime plus worker/Beat/database/Redis alerts.
+- Hosted uptime plus worker/Beat/database/Redis alert and recovery delivery. Repository probes and failure drills are implemented but are not external evidence.
 - Managed PITR restore into an isolated database.
 - Off-site logical backup and restore, if enabled.
 - Load/capacity and external security testing.

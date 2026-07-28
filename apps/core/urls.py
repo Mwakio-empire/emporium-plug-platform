@@ -29,7 +29,7 @@ from core.views import (
     TermsPageView,
     CategoryStorefrontView,
 )
-from core.health import LivenessView, ReadinessView
+from core.health import LivenessView, OperationalHealthView, ReadinessView
 
 # app_name is required when namespace= is used in config/urls.py include()
 app_name = 'core'
@@ -37,6 +37,7 @@ app_name = 'core'
 urlpatterns = [
     path('health/live/', LivenessView.as_view(), name='health_live'),
     path('health/ready/', ReadinessView.as_view(), name='health_ready'),
+    path('health/operations/', OperationalHealthView.as_view(), name='health_operations'),
     # Storefront
 path('', StorefrontHomeLandingView.as_view(), name='storefront_home'),
     path('product/<slug:slug>/', ProductDetailPageView.as_view(), name='product_detail'),

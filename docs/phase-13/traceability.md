@@ -11,9 +11,10 @@
 | HTTPS/cookies/hosts/CSRF/proxy | Complete at config level | Fail-fast settings and deploy check |
 | Secrets | Defined; external gate | No values are committed. Staging bootstrap disables external integrations; later provider items add secrets directly or through a dashboard-managed secret group, never ignored `sync: false` group entries. |
 | Structured logging/correlation | Complete and verified | JSON formatter, request ID middleware/tests |
-| Sentry PII controls | Complete at config level; external gate | `send_default_pii=False`; DSN/alerts require staging |
-| Health/readiness | Complete and verified | `/health/live/`, `/health/ready/`, dependency failure tests |
-| Uptime/worker alerts | Documented; external gate | Deployment runbook |
+| Sentry PII/release controls | Complete at config level; external gate | Django/Celery integrations, environment/release tags, zero default sampling and `send_default_pii=False`; DSN/alerts require staging |
+| Health/readiness | Complete and verified | `/health/live/`, `/health/ready/`, dependency failure tests and no-store responses |
+| Worker/Beat operational heartbeat | Complete and verified locally | Beat schedules a one-minute task; `/health/operations/` fails after a stale combined Beat/broker/worker path |
+| Hosted alert delivery | External gate | Monitoring runbook; Render/Sentry/external monitors require funded staging and named recipients |
 | Safe migrations/low-downtime deploy | Defined; staging proof required | `preDeployCommand`, readiness health gate, rollback runbook |
 | PostgreSQL-native backups | Complete and verified locally at application layer | `pg_dump` custom format, streaming checksum, S3 encryption, temporary-file cleanup and tests |
 | Uploaded archive verification | Complete and verified locally | `verify_database_backup` requires encryption, SHA-256 equality and a readable `pg_restore --list` catalog |

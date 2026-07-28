@@ -113,6 +113,12 @@ if IS_DEPLOYED_ENVIRONMENT and 'postgresql' not in DATABASES['default']['ENGINE'
     raise ImproperlyConfigured('Staging and production require PostgreSQL.')
 
 DATABASES['default']['CONN_MAX_AGE'] = env.int('DATABASE_CONN_MAX_AGE', default=600)
+ASYNC_HEARTBEAT_MAX_AGE_SECONDS = env.int(
+    'ASYNC_HEARTBEAT_MAX_AGE_SECONDS',
+    default=600,
+)
+if ASYNC_HEARTBEAT_MAX_AGE_SECONDS < 120:
+    raise ImproperlyConfigured('ASYNC_HEARTBEAT_MAX_AGE_SECONDS must be at least 120.')
 
 AUTH_USER_MODEL = 'users.User'
 
@@ -327,12 +333,19 @@ SENTRY_DSN = env('SENTRY_DSN', default='')
 
 if SENTRY_DSN:
     import sentry_sdk
+    from sentry_sdk.integrations.celery import CeleryIntegration
     from sentry_sdk.integrations.django import DjangoIntegration
+    sentry_release = env(
+        'SENTRY_RELEASE',
+        default=env('RENDER_GIT_COMMIT', default=''),
+    ).strip()
     sentry_sdk.init(
         dsn=SENTRY_DSN,
-        integrations=[DjangoIntegration()],
-        traces_sample_rate=env.float('SENTRY_TRACES_SAMPLE_RATE', default=0.1),
-        profiles_sample_rate=env.float('SENTRY_PROFILES_SAMPLE_RATE', default=0.1),
+        integrations=[DjangoIntegration(), CeleryIntegration()],
+        environment=env('SENTRY_ENVIRONMENT', default=ENVIRONMENT).strip(),
+        release=sentry_release or None,
+        traces_sample_rate=env.float('SENTRY_TRACES_SAMPLE_RATE', default=0.0),
+        profiles_sample_rate=env.float('SENTRY_PROFILES_SAMPLE_RATE', default=0.0),
         send_default_pii=env.bool('SENTRY_SEND_DEFAULT_PII', default=False),
     )
 

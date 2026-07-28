@@ -304,7 +304,9 @@ Gate 2 starts only after Gate 1 has no open Critical/High defect. Deploy
 ### Staging infrastructure checklist
 
 1. Confirm every service is in Frankfurt and has a staging-prefixed name.
-2. Confirm `/health/live/` and `/health/ready/` return HTTP 200.
+2. Confirm `/health/live/` and `/health/ready/` return HTTP 200. After Beat and
+   a worker have completed the one-minute heartbeat task, confirm
+   `/health/operations/` also returns HTTP 200.
 3. Confirm HTTPS redirect, secure cookies, allowed host and CSRF origin.
 4. Confirm web, worker and exactly one Beat process are healthy.
 5. Confirm PostgreSQL and Key Value use private internal connection URLs.
