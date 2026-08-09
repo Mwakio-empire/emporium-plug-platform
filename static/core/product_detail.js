@@ -102,7 +102,9 @@
             const button = document.getElementById("add-to-bag-btn");
             const quantity = document.getElementById("product-quantity");
             const message = document.getElementById("variant-selection-message");
+            const messageText = message?.querySelector("[data-variant-message]");
             const sku = document.getElementById("variant-sku");
+            const regularPrice = document.getElementById("variant-regular-price");
             const restockPanel = document.querySelector("[data-restock-panel]");
             const restockVariant = document.getElementById("restock-variant-id");
             if (!variant) {
@@ -111,7 +113,8 @@
                 button.disabled = true;
                 quantity.disabled = true;
                 button.textContent = "Choose available options";
-                message.textContent = "That combination is unavailable. Choose another option.";
+                message.dataset.state = "unavailable";
+                messageText.textContent = "That combination is unavailable. Choose another option.";
                 stockNote.textContent = "Combination unavailable";
                 stockNote.className = "text-xs text-rose-600 font-semibold";
                 return;
@@ -119,6 +122,10 @@
             hidden.value = variant.id;
             if (restockVariant) restockVariant.value = variant.id;
             price.textContent = `KES ${variant.price}`;
+            if (regularPrice) {
+                regularPrice.textContent = `KES ${variant.regular_price}`;
+                regularPrice.classList.toggle("hidden", !variant.on_sale);
+            }
             quantity.max = Math.max(variant.stock, 1);
             if (Number.parseInt(quantity.value, 10) > variant.stock) quantity.value = variant.stock || 1;
             const available = variant.stock > 0;
@@ -130,7 +137,8 @@
                 : "text-xs text-rose-600 font-semibold";
             button.disabled = !available;
             button.textContent = available ? "Add to cart" : "Out of stock";
-            message.textContent = available
+            message.dataset.state = available ? "available" : "sold-out";
+            messageText.textContent = available
                 ? `${variant.stock} available across our shops.`
                 : "Choose another combination to continue.";
             if (sku) sku.textContent = `SKU: ${variant.sku}`;
@@ -172,12 +180,8 @@
                         const hasStock = compatible.some(variant => variant.stock > 0);
                         control.disabled = !exists;
                         control.setAttribute("aria-pressed", String(isSelected));
-                        control.classList.toggle("border-brand-600", isSelected);
-                        control.classList.toggle("bg-brand-50", isSelected);
-                        control.classList.toggle("text-brand-700", isSelected);
-                        control.classList.toggle("ring-1", isSelected);
-                        control.classList.toggle("ring-brand-600", isSelected);
-                        control.classList.toggle("opacity-45", exists && !hasStock);
+                        control.dataset.selected = String(isSelected);
+                        control.dataset.stockState = hasStock ? "available" : "sold-out";
                         control.title = exists && !hasStock ? "Sold out in this combination" : "";
                     });
                 }

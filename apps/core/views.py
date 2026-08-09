@@ -473,6 +473,7 @@ class ProductDetailPageView(TemplateView):
                     'variant': v,
                     'stock': stock_qty,
                     'price': fs.sale_price if fs else v.effective_price,
+                    'regular_price': v.effective_price,
                     'flash_sale': fs,
                     'option_value_ids': [
                         assignment.value_id for assignment in v.option_assignments.all()
@@ -552,6 +553,8 @@ class ProductDetailPageView(TemplateView):
                     'sku': item['variant'].sku,
                     'values': item['option_value_ids'],
                     'price': str(item['price']),
+                    'regular_price': str(item['regular_price']),
+                    'on_sale': bool(item['flash_sale']),
                     'stock': item['stock'],
                     'image': item['image_url'],
                     'image_alt': f"{product.name} — {item['variant'].option_summary}",

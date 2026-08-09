@@ -1,5 +1,16 @@
 # Change log
 
+## 2026-08-09 - Storefront variant selector polish
+
+- Replaced the plain product-option controls with compact size chips and true
+  colour swatches while retaining accessible labels and keyboard operation.
+- Variant selection now gives a clear selected state and updates the variant ID,
+  price, regular sale price, stock message, SKU, image and cart availability.
+- Rendered arbitrary validated colour values without weakening the storefront's
+  Content Security Policy.
+- Browser-verified the size-and-colour flow on desktop and mobile without
+  horizontal overflow or console errors.
+
 ## 2026-08-02 - Persistent shopping location selector
 
 - Added a familiar County → City/Area selector to the storefront and product pages.

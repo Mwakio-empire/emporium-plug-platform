@@ -43,31 +43,43 @@
         {% if average_rating %}<p class="text-sm font-semibold text-amber-700"><span aria-hidden="true">&#9733;</span> {{ average_rating|floatformat:1 }} out of 5 <span class="font-normal text-slate-500">from {{ review_count }} verified review{{ review_count|pluralize }}</span></p>{% else %}<p class="text-sm text-slate-500">Not yet reviewed</p>{% endif %}
 
         {% if has_variants %}
-        <div id="variant-picker" class="space-y-4" aria-label="Product options">
+        <div id="variant-picker" class="variant-picker" aria-label="Choose product options">
             {% for option in option_groups %}
-            <fieldset class="space-y-2" data-option-group data-option-id="{{ option.id }}">
-                <legend class="text-xs font-bold uppercase tracking-wider text-slate-500">
-                    {{ option.name }}: <span class="normal-case tracking-normal text-slate-900" data-selected-option-label></span>
+            <fieldset class="variant-option-group" data-option-group data-option-id="{{ option.id }}">
+                <legend class="variant-option-legend">
+                    <span>{{ option.name }}</span>
+                    <span class="variant-selected-value" data-selected-option-label></span>
                 </legend>
                 {% if option.display_type == 'DROPDOWN' %}
-                <select class="w-full rounded-xl border-slate-300 text-sm focus:border-brand-600 focus:ring-brand-600 sm:max-w-xs" data-option-select aria-label="Choose {{ option.name }}">
+                <select class="variant-select" data-option-select aria-label="Choose {{ option.name }}">
                     {% for value in option.values.all %}<option value="{{ value.id }}">{{ value.value }}</option>{% endfor %}
                 </select>
                 {% else %}
-                <div class="flex flex-wrap gap-2">
+                <div class="variant-choice-list">
                     {% for value in option.values.all %}
                     <button type="button"
-                            class="variant-value inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
-                            data-option-value="{{ value.id }}" data-option-label="{{ value.value }}" aria-pressed="false">
-                        {% if option.display_type == 'COLOUR' %}<span class="h-5 w-5 rounded-full border border-black/15 shadow-sm" style="background-color: {{ value.colour_hex|default:'#E5E7EB' }}" aria-hidden="true"></span>{% endif %}
+                            class="variant-choice {% if option.display_type == 'COLOUR' %}variant-choice--colour{% else %}variant-choice--text{% endif %}"
+                            data-option-value="{{ value.id }}" data-option-label="{{ value.value }}"
+                            aria-label="{{ option.name }}: {{ value.value }}" aria-pressed="false" title="{{ value.value }}">
+                        {% if option.display_type == 'COLOUR' %}
+                        <svg class="variant-colour-swatch" data-colour-id="{{ value.id }}" viewBox="0 0 32 32" aria-hidden="true">
+                            <rect x="1" y="1" width="30" height="30" rx="6" fill="{{ value.colour_hex|default:'#E5E7EB' }}" />
+                        </svg>
+                        <svg class="variant-choice-check" viewBox="0 0 20 20" aria-hidden="true"><path d="m5 10 3 3 7-7" /></svg>
+                        <span class="sr-only">{{ value.value }}</span>
+                        {% else %}
                         <span>{{ value.value }}</span>
+                        {% endif %}
                     </button>
                     {% endfor %}
                 </div>
                 {% endif %}
             </fieldset>
             {% endfor %}
-            <p id="variant-selection-message" class="text-xs text-slate-500" aria-live="polite">Choose the available options above.</p>
+            <p id="variant-selection-message" class="variant-selection-message" aria-live="polite">
+                <span class="variant-stock-dot" aria-hidden="true"></span>
+                <span data-variant-message>Choose the available options above.</span>
+            </p>
         </div>
         {{ variant_matrix|json_script:"variant-matrix-data" }}
         {% endif %}
@@ -76,6 +88,9 @@
             <span id="display-price" class="text-2xl font-black text-slate-900">
                 KES {% if has_variants %}{{ variant_data.0.price }}{% else %}{{ product.price }}{% endif %}
             </span>
+            {% if has_variants %}
+            <span id="variant-regular-price" class="{% if not variant_data.0.flash_sale %}hidden {% endif %}text-sm text-gray-400 line-through">KES {{ variant_data.0.regular_price }}</span>
+            {% endif %}
             {% if not has_variants and on_sale %}
             <span class="text-sm text-gray-400 line-through">KES {{ product.compare_at_price }}</span>
             {% endif %}
@@ -316,4 +331,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 {% endcomment %}
 {% endblock %}
-{% block extra_js %}{% load static %}<script src="{% static 'core/product_detail.js' %}?v=20260801a" defer></script>{% endblock %}
+{% block extra_js %}{% load static %}<script src="{% static 'core/product_detail.js' %}?v=20260809-variants" defer></script>{% endblock %}
