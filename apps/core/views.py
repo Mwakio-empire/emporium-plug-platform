@@ -26,6 +26,7 @@ from orders.cart_services import UnifiedPOSCartService, UnifiedSessionCartServic
 from core.services import HighPerformanceOptimizationService
 from catalog.models import Product, Category, ProductVariant, WishlistItem, RestockSubscription
 from catalog.restock_services import create_restock_subscription, cancel_restock_subscription
+from catalog.media_services import product_media as build_product_media, variant_media as build_variant_media
 from catalog.wishlist_services import toggle_wishlist_product, wishlist_product_ids
 from catalog.storefront import (
     apply_storefront_filters,
@@ -438,15 +439,16 @@ class ProductDetailPageView(TemplateView):
         from inventory.models import Stock
         product = get_object_or_404(
             Product.objects.select_related('category').prefetch_related(
-                'gallery_images', 'options__values', 'quantity_price_tiers',
+                'gallery_images', 'options__values__images', 'quantity_price_tiers',
                 'variants__option_assignments__option',
-                'variants__option_assignments__value',
+                'variants__option_assignments__value__images',
             ),
             slug=kwargs['slug'],
             status=Product.Status.ACTIVE,
             category__is_visible=True,
         )
         variants = list(product.variants.filter(is_active=True))
+        base_media = build_product_media(product)
         now = timezone.now()
         variant_data = []
         in_stock = False
@@ -467,6 +469,7 @@ class ProductDetailPageView(TemplateView):
             for v in variants:
                 fs = active_sales.get(v.id)
                 stock_qty = stock_map.get(v.id, 0)
+                media = build_variant_media(v, base_media)
                 if stock_qty > 0:
                     in_stock = True
                 variant_data.append({
@@ -479,6 +482,7 @@ class ProductDetailPageView(TemplateView):
                         assignment.value_id for assignment in v.option_assignments.all()
                     ],
                     'image_url': v.image.url if v.image else '',
+                    'media': media,
                 })
             variant_data.sort(key=lambda item: item['stock'] <= 0)
         else:
@@ -497,9 +501,12 @@ class ProductDetailPageView(TemplateView):
         canonical_url = self.request.build_absolute_uri(
             reverse('core:product_detail', kwargs={'slug': product.slug}),
         )
-        gallery_urls = [self.request.build_absolute_uri(image.image.url) for image in product.gallery_images.all()]
-        if product.image:
-            gallery_urls.insert(0, self.request.build_absolute_uri(product.image.url))
+        all_media = [*base_media]
+        for item in variant_data:
+            all_media.extend(item['media'])
+        gallery_urls = list(dict.fromkeys(
+            self.request.build_absolute_uri(item['url']) for item in all_media
+        ))
         overall_available = public_products().get(pk=product.pk).available_stock > 0
         offer_price = (
             min(item['price'] for item in variant_data)
@@ -558,6 +565,7 @@ class ProductDetailPageView(TemplateView):
                     'stock': item['stock'],
                     'image': item['image_url'],
                     'image_alt': f"{product.name} — {item['variant'].option_summary}",
+                    'media': item['media'],
                     'flash_end': (
                         item['flash_sale'].end_time.isoformat()
                         if item['flash_sale'] else ''
@@ -566,6 +574,7 @@ class ProductDetailPageView(TemplateView):
                 for item in variant_data
             ],
             'option_groups': product.options.prefetch_related('values').all(),
+            'initial_media': variant_data[0]['media'] if variant_data else base_media,
             'has_variants': bool(variants),
             'in_stock': in_stock,
             'on_sale': bool(product.compare_at_price and product.compare_at_price > product.price),

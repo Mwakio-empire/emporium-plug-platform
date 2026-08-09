@@ -10,7 +10,13 @@ from branches.models import Branch
 from inventory.models import Stock
 from marketing.models import FlashSale
 
-from catalog.models import Category, Product, ProductOption, ProductOptionValue
+from catalog.models import (
+    Category,
+    Product,
+    ProductOption,
+    ProductOptionValue,
+    ProductOptionValueImage,
+)
 from catalog.variant_services import configure_variant, generate_missing_combinations
 
 
@@ -54,6 +60,16 @@ class ProductOptionCombinationTests(TestCase):
         value = ProductOptionValue(option=self.colour, value='Invalid', colour_hex='orange')
         with self.assertRaises(ValidationError):
             value.full_clean()
+
+    def test_colour_gallery_rejects_non_colour_option_values(self):
+        image = ProductOptionValueImage(
+            option_value=self.small,
+            image='catalog_products/option_values/invalid',
+            alt_text='Invalid size image',
+        )
+
+        with self.assertRaisesMessage(ValidationError, 'only be attached to colour options'):
+            image.save()
 
     def test_storefront_renders_grouped_selectors_and_variant_matrix(self):
         variants = generate_missing_combinations(self.product.pk)
@@ -105,3 +121,66 @@ class ProductOptionCombinationTests(TestCase):
         self.assertEqual(sale_entry['regular_price'], '2600.00')
         self.assertIs(sale_entry['on_sale'], True)
         self.assertContains(response, 'id="variant-regular-price"')
+
+    def test_colour_gallery_is_shared_across_sizes_and_exact_variant_image_wins(self):
+        ProductOptionValueImage.objects.create(
+            option_value=self.black,
+            image='catalog_products/option_values/black-primary',
+            alt_text='Black option hoodie front view',
+            sort_order=0,
+        )
+        ProductOptionValueImage.objects.create(
+            option_value=self.black,
+            image='catalog_products/option_values/black-back',
+            alt_text='Black option hoodie back view',
+            sort_order=1,
+        )
+        self.product.image = 'catalog_products/option-values/product-fallback'
+        self.product.save(update_fields=['image', 'updated_at'])
+        variants = generate_missing_combinations(self.product.pk)
+        branch = Branch.objects.create(name='Option Media S18', location='Nairobi')
+        for variant in variants:
+            Stock.objects.create(branch=branch, variant=variant, quantity=5)
+
+        small_black = next(
+            variant for variant in variants
+            if set(variant.option_values.values_list('pk', flat=True)) == {
+                self.small.pk, self.black.pk,
+            }
+        )
+        medium_black = next(
+            variant for variant in variants
+            if set(variant.option_values.values_list('pk', flat=True)) == {
+                self.medium.pk, self.black.pk,
+            }
+        )
+        medium_orange = next(
+            variant for variant in variants
+            if set(variant.option_values.values_list('pk', flat=True)) == {
+                self.medium.pk, self.orange.pk,
+            }
+        )
+        small_black.image = 'catalog_products/variants/exact-small-black'
+        small_black.save(update_fields=['image'])
+
+        response = self.client.get(reverse(
+            'core:product_detail', kwargs={'slug': self.product.slug},
+        ))
+
+        matrix = {item['id']: item for item in response.context['variant_matrix']}
+        self.assertIn('exact-small-black', matrix[small_black.pk]['media'][0]['url'])
+        self.assertIn('black-primary', matrix[small_black.pk]['media'][1]['url'])
+        self.assertIn('black-primary', matrix[medium_black.pk]['media'][0]['url'])
+        self.assertIn('black-back', matrix[medium_black.pk]['media'][1]['url'])
+        self.assertIn('product-fallback', matrix[medium_orange.pk]['media'][0]['url'])
+
+        api_response = self.client.get(reverse(
+            'catalog:product-detail', kwargs={'slug': self.product.slug},
+        ))
+        black_data = next(
+            value
+            for option in api_response.data['options'] if option['name'] == 'Colour'
+            for value in option['values'] if value['value'] == 'Black'
+        )
+        self.assertEqual(len(black_data['images']), 2)
+        self.assertEqual(black_data['images'][0]['alt_text'], 'Black option hoodie front view')

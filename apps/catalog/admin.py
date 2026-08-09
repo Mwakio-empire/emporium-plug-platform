@@ -8,6 +8,7 @@ from .models import (
     ProductImage,
     ProductOption,
     ProductOptionValue,
+    ProductOptionValueImage,
     ProductVariant,
     QuantityPriceTier,
     RestockSubscription,
@@ -84,6 +85,7 @@ class ProductOptionValueInline(admin.TabularInline):
     model = ProductOptionValue
     fields = ('value', 'colour_hex', 'position')
     extra = 1
+    show_change_link = True
 
 
 @admin.register(ProductOption)
@@ -92,6 +94,25 @@ class ProductOptionAdmin(admin.ModelAdmin):
     list_filter = ('display_type',)
     search_fields = ('name', 'product__name', 'product__sku')
     inlines = (ProductOptionValueInline,)
+
+
+class ProductOptionValueImageInline(admin.TabularInline):
+    model = ProductOptionValueImage
+    fields = ('image', 'alt_text', 'sort_order')
+    extra = 1
+
+
+@admin.register(ProductOptionValue)
+class ProductOptionValueAdmin(admin.ModelAdmin):
+    list_display = ('value', 'option', 'product_name', 'colour_hex', 'position')
+    list_filter = ('option__display_type', 'option__product__category')
+    search_fields = ('value', 'option__name', 'option__product__name', 'option__product__sku')
+    autocomplete_fields = ('option',)
+    inlines = (ProductOptionValueImageInline,)
+
+    @admin.display(description='Product', ordering='option__product__name')
+    def product_name(self, obj):
+        return obj.option.product.name
 
 
 @admin.register(ProductVariant)

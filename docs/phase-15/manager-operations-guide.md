@@ -1,5 +1,21 @@
 # Manager operations guide
 
+## Configure colour images
+
+1. Open **System data administration → Product option values**.
+2. Open the colour value, for example `Everyday Heavyweight Hoodie — Colour: Grey`.
+3. Under **Product option value images**, upload the Grey product photographs.
+4. Describe each photograph accurately in **Alt text**, including the product and
+   visible colour. Use sort order `0` for the primary image, then `1`, `2` and so on.
+5. Save and check the public product page at desktop and mobile widths. Selecting
+   Grey should replace the main image and thumbnail strip for every Grey size.
+
+Upload colour media once per colour, not once per size. An image saved on one
+exact product variant overrides the primary colour image for that SKU; use that
+only when the SKU genuinely looks different. When neither exists, the storefront
+uses the general product gallery. Colour galleries are deliberately unavailable
+for Size, Capacity and other non-colour options.
+
 ## Configure wholesale quantity pricing
 
 1. Open **System data administration → Products** and select the product.

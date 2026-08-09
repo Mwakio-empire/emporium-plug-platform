@@ -16,6 +16,67 @@
         image.alt = alt;
     }
 
+    function setActiveThumbnail(activeButton) {
+        document.querySelectorAll(".product-image-option").forEach(button => {
+            button.setAttribute("aria-pressed", String(button === activeButton));
+        });
+    }
+
+    function createMainImage() {
+        const shell = document.getElementById("product-main-media");
+        if (!shell) return null;
+        let image = document.getElementById("main-product-image");
+        if (image) return image;
+        document.getElementById("product-image-placeholder")?.remove();
+        image = document.createElement("img");
+        image.id = "main-product-image";
+        image.width = 960;
+        image.height = 960;
+        image.loading = "eager";
+        image.decoding = "async";
+        image.dataset.progressiveImage = "";
+        image.className = "aspect-square w-full rounded-xl object-cover";
+        shell.append(image);
+        return image;
+    }
+
+    function renderGallery(media) {
+        const gallery = document.getElementById("product-thumbnail-gallery");
+        if (!gallery) return;
+        gallery.replaceChildren();
+        if (!Array.isArray(media) || !media.length) {
+            gallery.classList.add("hidden");
+            return;
+        }
+
+        const mainImage = createMainImage();
+        replaceMainImage(mainImage, media[0].url, media[0].alt);
+        media.forEach((item, index) => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = "product-image-option product-image-shell overflow-hidden rounded-lg border";
+            button.dataset.imageShell = "";
+            button.dataset.imageUrl = item.url;
+            button.dataset.imageAlt = item.alt;
+            button.setAttribute("aria-label", `Show ${item.alt}`);
+            button.setAttribute("aria-pressed", String(index === 0));
+
+            const thumbnail = document.createElement("img");
+            thumbnail.src = item.thumbnail;
+            thumbnail.alt = "";
+            thumbnail.width = 192;
+            thumbnail.height = 192;
+            thumbnail.loading = "lazy";
+            thumbnail.decoding = "async";
+            thumbnail.dataset.progressiveImage = "";
+            thumbnail.className = "aspect-square object-cover";
+            button.append(thumbnail);
+            gallery.append(button);
+        });
+        gallery.classList.remove("hidden");
+        window.EmporiumImages?.prepareAll(gallery);
+    }
+
     function openCart(trigger) {
         const panel = drawer();
         if (!panel) return;
@@ -142,12 +203,7 @@
                 ? `${variant.stock} available across our shops.`
                 : "Choose another combination to continue.";
             if (sku) sku.textContent = `SKU: ${variant.sku}`;
-            if (variant.image) {
-                const image = document.getElementById("main-product-image");
-                if (image) {
-                    replaceMainImage(image, variant.image, variant.image_alt);
-                }
-            }
+            renderGallery(variant.media);
             updateCountdown(variant.flash_end);
         }
 
@@ -210,6 +266,7 @@
             const image = document.getElementById("main-product-image");
             if (image) {
                 replaceMainImage(image, imageOption.dataset.imageUrl, imageOption.dataset.imageAlt);
+                setActiveThumbnail(imageOption);
             }
         }
         if (event.target.closest("[data-cart-close]")) closeCart();

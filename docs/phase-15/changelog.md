@@ -10,6 +10,11 @@
   Content Security Policy.
 - Browser-verified the size-and-colour flow on desktop and mobile without
   horizontal overflow or console errors.
+- Added reusable ordered galleries to colour option values, with a super-admin
+  upload workflow and validation that rejects media on non-colour options.
+- Selecting a colour now replaces the main image and thumbnails for every size;
+  an exact SKU image overrides the colour gallery and the general product gallery
+  remains the final fallback.
 
 ## 2026-08-02 - Persistent shopping location selector
 

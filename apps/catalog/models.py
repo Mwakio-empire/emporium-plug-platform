@@ -275,6 +275,54 @@ class ProductOptionValue(models.Model):
         return f'{self.option.name}: {self.value}'
 
 
+class ProductOptionValueImage(models.Model):
+    """An ordered storefront image shared by every variant using a colour value."""
+
+    option_value = models.ForeignKey(
+        ProductOptionValue,
+        on_delete=models.CASCADE,
+        related_name='images',
+    )
+    image = CloudinaryField(
+        'image', folder='catalog_products/option_values/',
+        validators=[validate_catalog_image],
+    )
+    alt_text = models.CharField(
+        max_length=255,
+        help_text='Describe the product and visible colour for screen-reader customers.',
+    )
+    sort_order = models.PositiveSmallIntegerField(
+        default=0,
+        help_text='The lowest number is used as the primary colour image.',
+    )
+
+    class Meta:
+        ordering = ['sort_order', 'id']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['option_value', 'sort_order'],
+                name='unique_option_value_image_sort_order',
+            ),
+        ]
+
+    def clean(self):
+        super().clean()
+        if (
+            self.option_value_id
+            and self.option_value.option.display_type != ProductOption.DisplayType.COLOUR
+        ):
+            raise ValidationError(
+                {'option_value': 'Colour galleries can only be attached to colour options.'}
+            )
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.option_value}: image {self.sort_order}'
+
+
 class ProductVariant(models.Model):
     """
     Sub-product variations tracking combinations like size, color, or custom fields.

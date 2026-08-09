@@ -3,7 +3,8 @@
 from rest_framework import serializers
 from django.db.models import Sum
 from .models import (
-    Category, Product, ProductImage, ProductOption, ProductOptionValue, ProductVariant,
+    Category, Product, ProductImage, ProductOption, ProductOptionValue,
+    ProductOptionValueImage, ProductVariant,
 )
 from inventory.models import Stock
 
@@ -53,10 +54,23 @@ class CategoryTreeSerializer(serializers.ModelSerializer):
         ).data
 
 
+class ProductOptionValueImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductOptionValueImage
+        fields = ['id', 'image_url', 'alt_text', 'sort_order']
+
+    def get_image_url(self, obj):
+        return obj.image.url if obj.image else None
+
+
 class ProductOptionValueSerializer(serializers.ModelSerializer):
+    images = ProductOptionValueImageSerializer(many=True, read_only=True)
+
     class Meta:
         model = ProductOptionValue
-        fields = ['id', 'value', 'colour_hex', 'position']
+        fields = ['id', 'value', 'colour_hex', 'position', 'images']
 
 
 class ProductOptionSerializer(serializers.ModelSerializer):

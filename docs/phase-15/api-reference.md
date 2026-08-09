@@ -18,7 +18,7 @@ Restock alerts do not reserve stock, are not marketing subscriptions and expire 
 |---|---|---|
 | GET | `/api/catalog/categories/` | Visible nested categories. |
 | GET | `/api/catalog/products/` | Active catalog with supported filters/sorting/pagination. |
-| GET | `/api/catalog/products/{slug}/` | Active product detail. |
+| GET | `/api/catalog/products/{slug}/` | Active product detail, including ordered colour-value image galleries and accessible alternative text. |
 | GET | `/api/logistics/zones/` | Legacy delivery-zone configuration. Public launch checkout does not expose self-service delivery. |
 | GET | `/api/logistics/pickup-slots/` | Active, non-expired pickup slots. |
 | GET | `/api/logistics/towns/?county={two-digit-code}` | Anonymous, rate-limited active town `id` and `name` values for one active county. Invalid, missing and inactive counties return HTTP 400. |
