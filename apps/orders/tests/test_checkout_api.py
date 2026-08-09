@@ -25,7 +25,7 @@ from inventory.models import Stock
 from logistics.models import (
     KenyaCounty, ParcelDestination, PickupSlot, DeliveryAssignment, RiderProfile,
 )
-from orders.models import Order
+from orders.models import Order, OrderStatusHistory
 from payments.models import MpesaTransaction
 from catalog.constants import STOREFRONT_SELECTED_BRANCH_KEY
 from marketing.models import Coupon
@@ -223,7 +223,7 @@ class CheckoutInitViewTests(CheckoutAPITestDataMixin, APITestCase):
         }, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('WhatsApp', response.data['error'])
+        self.assertIn('verified delivery quote', response.data['error'])
         self.assertEqual(Order.objects.count(), 0)
 
     def test_successful_pickup_cod_order(self):
@@ -322,7 +322,7 @@ class CheckoutInitViewTests(CheckoutAPITestDataMixin, APITestCase):
             'confirmed': True,
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn('WhatsApp', response.data['error'])
+        self.assertIn('verified delivery quote', response.data['error'])
         self.assertEqual(Order.objects.count(), 0)
 
     def test_valid_order_requires_explicit_confirmation(self):
@@ -361,6 +361,10 @@ class CheckoutPreviewViewTests(CheckoutAPITestDataMixin, APITestCase):
         self.assertEqual(response.data['subtotal'], '2600.00')
         self.assertEqual(response.data['delivery_fee'], '0.00')
         self.assertEqual(response.data['total_payable'], '2600.00')
+        self.assertIn('regular_price_total', response.data)
+        self.assertIn('product_discount_amount', response.data)
+        self.assertEqual(response.data['regular_price_total'], '2600.00')
+        self.assertEqual(response.data['product_discount_amount'], '0.00')
         self.assertEqual(len(response.data['price_changes']), 1)
 
     def test_coupon_preview_does_not_consume_coupon(self):
@@ -586,6 +590,9 @@ class GuestOrderAccessTests(CheckoutAPITestDataMixin, APITestCase):
         self.assertIn(f'/orders/track/{self.order_number}/#', self.tracking_url)
         self.assertNotIn('?token=', self.tracking_url)
 
+    def test_checkout_response_always_has_dedicated_tracking_page(self):
+        self.assertIn(f'/orders/track/{self.order_number}/#', self.tracking_url)
+
     @patch('orders.checkout_views.MpesaDarajaService.initiate_stk_push')
     def test_guest_can_initiate_payment_only_with_token(self, mock_stk):
         mock_stk.return_value = MpesaTransaction(checkout_request_id='guest-checkout-id')
@@ -601,6 +608,21 @@ class GuestOrderAccessTests(CheckoutAPITestDataMixin, APITestCase):
             'access_token': self.token,
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    @patch('orders.checkout_views.MpesaDarajaService.initiate_stk_push')
+    def test_payment_retry_limit_is_scoped_to_the_protected_order(self, mock_stk):
+        mock_stk.return_value = MpesaTransaction(checkout_request_id='rate-test-checkout')
+        url = reverse('checkout:pay')
+        payload = {
+            'order_number': self.order_number,
+            'phone': '+254712345678',
+            'access_token': self.token,
+        }
+
+        responses = [self.client.post(url, payload, format='json') for _ in range(7)]
+
+        self.assertTrue(all(response.status_code == status.HTTP_200_OK for response in responses[:6]))
+        self.assertEqual(responses[6].status_code, status.HTTP_429_TOO_MANY_REQUESTS)
 
 
 class OrderStatusViewTests(CheckoutAPITestDataMixin, APITestCase):
@@ -662,6 +684,37 @@ class OrderStatusViewTests(CheckoutAPITestDataMixin, APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['order_number'], self.order_number)
         self.assertIsNone(response.data['rider'])
+
+    def test_status_api_uses_customer_copy_and_hides_internal_notes(self):
+        order = Order.objects.get(order_number=self.order_number)
+        OrderStatusHistory.objects.create(
+            order=order,
+            old_status=Order.Status.PENDING,
+            new_status=Order.Status.PENDING,
+            note='INTERNAL_ENUM ONLINE_PICKUP manager-only explanation',
+            changed_by=self.customer,
+        )
+        MpesaTransaction.objects.create(
+            order=order,
+            merchant_request_id='status-copy-merchant',
+            checkout_request_id='status-copy-checkout',
+            status=MpesaTransaction.Status.PENDING,
+            expected_amount=order.total_payable,
+        )
+
+        response = self.client.get(
+            reverse('orders:status', kwargs={'order_number': self.order_number}),
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIsNotNone(response.data['payment_expires_at'])
+        event = response.data['status_history'][0]
+        self.assertNotIn('note', event)
+        self.assertNotIn('INTERNAL_ENUM', event['message'])
+        self.assertEqual(
+            event['message'],
+            'Your order was placed. Complete the M-Pesa prompt to confirm payment.',
+        )
 
     def test_rider_data_distinguishes_unassigned_from_assigned(self):
         """

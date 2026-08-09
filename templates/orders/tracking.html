@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Track order {{ order_number }} - EmporiumPlug{% endblock %}
+{% block robots %}<meta name="robots" content="noindex,nofollow">{% endblock %}
 {% block meta_description %}View the current status of your EmporiumPlug order.{% endblock %}
 {% block extra_head %}<meta name="referrer" content="no-referrer">{% endblock %}
 
@@ -8,7 +9,28 @@
 <section class="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-white p-6" aria-labelledby="tracking-heading" data-order-number="{{ order_number }}" id="order-tracking">
     <p class="text-sm font-semibold text-brand-700">Order tracking</p>
     <h1 id="tracking-heading" class="mt-1 text-2xl font-bold text-slate-900">Order {{ order_number }}</h1>
+    <p class="mt-2 text-sm text-slate-600">Keep this page open. It updates automatically as payment, packing and collection progress.</p>
     <div id="tracking-message" role="status" aria-live="polite" class="mt-5 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">Loading your order...</div>
+    <div id="payment-countdown" class="mt-3 hidden rounded-lg border border-blue-200 bg-white p-4" aria-live="polite">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Time remaining to complete payment</p>
+        <p id="payment-countdown-value" class="mt-1 text-2xl font-bold tabular-nums text-slate-900">30:00</p>
+        <p class="mt-1 text-xs text-slate-600">You only need to respond to the M-Pesa prompt once. This page checks payment automatically.</p>
+    </div>
+    <div id="tracking-actions" class="mt-4 hidden flex flex-wrap gap-3">
+        <a href="{% url 'core:storefront_home' %}#products" class="inline-flex min-h-11 items-center justify-center rounded-full bg-brand-600 px-5 py-2.5 text-sm font-bold text-white transition hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2">Shop again</a>
+        <a href="https://wa.me/254116153335?text=Hello%20Emporium%20Plug%2C%20I%20need%20help%20with%20an%20order." class="inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800 transition hover:bg-slate-50">Get help on WhatsApp</a>
+    </div>
+    <dialog id="cancel-order-dialog" aria-describedby="cancel-order-explanation" class="cancel-order-dialog overflow-visible rounded-2xl border-0 p-0 shadow-2xl backdrop:bg-slate-950/60">
+        <form method="dialog" class="p-6">{% csrf_token %}
+            <h2 class="text-xl font-bold text-slate-950">Cancel this order?</h2>
+            <p id="cancel-order-explanation" class="mt-2 text-sm text-slate-600">The reserved items will be released immediately. If you already approved an M-Pesa payment, do not cancel here—contact us so the payment can be checked safely.</p>
+            <p id="cancel-order-error" role="alert" class="mt-3 hidden rounded-lg bg-red-50 p-3 text-sm text-red-800"></p>
+            <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                <button id="confirm-cancel-order" type="button" class="cancel-order-confirm min-h-11 w-full rounded-full px-5 py-2.5 text-sm font-bold text-white">Yes, cancel order</button>
+                <button id="keep-order" type="button" class="min-h-11 w-full rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-800">Keep my order</button>
+            </div>
+        </form>
+    </dialog>
     <div id="tracking-details" class="mt-5 hidden">
         <dl class="grid gap-3 rounded-xl bg-slate-50 p-4 sm:grid-cols-2">
             <div><dt class="text-xs font-semibold uppercase text-slate-500">Status</dt><dd id="tracking-status" class="mt-1 font-bold text-slate-900"></dd></div>
@@ -25,7 +47,14 @@
         <h2 class="mt-6 text-lg font-bold text-slate-900">Items</h2>
         <ul id="tracking-items" class="mt-3 divide-y divide-slate-100"></ul>
     </div>
+    <div id="cancel-order-panel" class="mt-8 hidden border-t border-slate-200 pt-5">
+        <details class="group rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <summary class="cursor-pointer text-sm font-semibold text-slate-700 marker:text-slate-400">Need to cancel this order?</summary>
+            <p class="mt-3 text-sm text-slate-600">If it was placed by mistake, you can cancel during the short grace period before payment is confirmed or packing begins.</p>
+            <button id="open-cancel-order" type="button" class="mt-3 inline-flex min-h-11 items-center justify-center rounded-full border border-slate-300 bg-white px-5 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-red-300 hover:bg-red-50 hover:text-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2">Continue to cancellation</button>
+        </details>
+    </div>
 </section>
 {% endblock %}
 
-{% block extra_js %}<script src="{% static 'orders/tracking.js' %}" defer></script>{% endblock %}
+{% block extra_js %}<script src="{% static 'orders/tracking.js' %}?v=20260730-cancel2" defer></script>{% endblock %}

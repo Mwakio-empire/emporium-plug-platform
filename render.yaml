@@ -28,6 +28,8 @@ envVarGroups:
         sync: false
       - key: REPORT_EMAIL_ENABLED
         value: "False"
+      - key: TRANSACTIONAL_EMAIL_ENABLED
+        value: "True"
       - key: EMAIL_BACKEND
         value: django.core.mail.backends.smtp.EmailBackend
       - key: EMAIL_HOST
@@ -55,7 +57,7 @@ envVarGroups:
       - key: AFRICASTALKING_SENDER_ID
         sync: false
       - key: MPESA_ENVIRONMENT
-        value: sandbox
+        value: production
       - key: MPESA_CONSUMER_KEY
         sync: false
       - key: MPESA_CONSUMER_SECRET
@@ -75,7 +77,19 @@ envVarGroups:
       - key: ASYNC_HEARTBEAT_MAX_AGE_SECONDS
         value: "600"
       - key: BACKUP_ENABLED
-        value: "False"
+        value: "True"
+      - key: BACKUP_S3_BUCKET
+        sync: false
+      - key: BACKUP_S3_PREFIX
+        value: emporium-plug/database
+      - key: BACKUP_S3_REGION
+        sync: false
+      - key: BACKUP_S3_KMS_KEY_ID
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
 
 services:
   - type: web

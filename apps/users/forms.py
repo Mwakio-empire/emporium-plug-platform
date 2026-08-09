@@ -1,4 +1,5 @@
 from django import forms
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -16,27 +17,46 @@ _INPUT_CLS = (
 
 class CustomerLoginForm(forms.Form):
     identifier = forms.CharField(
-        label="Phone or Email", max_length=254,
-        widget=forms.TextInput(attrs={'class': _INPUT_CLS, 'autofocus': True}),
+        label="Phone number or email", max_length=254,
+        widget=forms.TextInput(attrs={
+            'class': _INPUT_CLS,
+            'autofocus': True,
+            'autocomplete': 'username',
+        }),
     )
     password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': _INPUT_CLS}),
+        widget=forms.PasswordInput(attrs={
+            'class': _INPUT_CLS,
+            'autocomplete': 'current-password',
+        }),
     )
 
 
 class CustomerSignupForm(forms.Form):
     first_name = forms.CharField(max_length=150, required=False,
-        widget=forms.TextInput(attrs={'class': _INPUT_CLS}))
+        widget=forms.TextInput(attrs={'class': _INPUT_CLS, 'autocomplete': 'given-name'}))
     last_name = forms.CharField(max_length=150, required=False,
-        widget=forms.TextInput(attrs={'class': _INPUT_CLS}))
+        widget=forms.TextInput(attrs={'class': _INPUT_CLS, 'autocomplete': 'family-name'}))
     email = forms.EmailField(required=False,
-        widget=forms.EmailInput(attrs={'class': _INPUT_CLS}))
+        widget=forms.EmailInput(attrs={'class': _INPUT_CLS, 'autocomplete': 'email'}))
     phone_number = forms.CharField(max_length=15,
-        widget=forms.TextInput(attrs={'class': _INPUT_CLS, 'placeholder': '+2547XXXXXXXX'}))
-    password = forms.CharField(min_length=8,
-        widget=forms.PasswordInput(attrs={'class': _INPUT_CLS}))
+        widget=forms.TextInput(attrs={
+            'class': _INPUT_CLS,
+            'placeholder': '07XXXXXXXX or +2547XXXXXXXX',
+            'autocomplete': 'tel',
+            'inputmode': 'tel',
+        }))
+    password = forms.CharField(min_length=settings.PASSWORD_MINIMUM_LENGTH,
+        widget=forms.PasswordInput(attrs={
+            'class': _INPUT_CLS,
+            'autocomplete': 'new-password',
+            'data-password-policy-input': 'true',
+        }))
     confirm_password = forms.CharField(
-        widget=forms.PasswordInput(attrs={'class': _INPUT_CLS}))
+        widget=forms.PasswordInput(attrs={
+            'class': _INPUT_CLS,
+            'autocomplete': 'new-password',
+        }))
 
     def clean_phone_number(self):
         try:
@@ -73,6 +93,7 @@ class OTPVerifyForm(forms.Form):
         widget=forms.TextInput(attrs={
             'class': _INPUT_CLS, 'autofocus': True,
             'inputmode': 'numeric', 'pattern': '[0-9]{6}',
+            'autocomplete': 'one-time-code',
             'placeholder': '••••••',
         }),
     )
@@ -80,7 +101,7 @@ class OTPVerifyForm(forms.Form):
 
 class PasswordResetRequestForm(forms.Form):
     identifier = forms.CharField(
-        label="Phone or Email",
+        label="Phone number or email",
         max_length=254,
         widget=forms.TextInput(attrs={
             'class': _INPUT_CLS,
@@ -109,6 +130,7 @@ class PasswordResetConfirmForm(forms.Form):
         widget=forms.PasswordInput(attrs={
             'class': _INPUT_CLS,
             'autocomplete': 'new-password',
+            'data-password-policy-input': 'true',
         }),
     )
     confirm_new_password = forms.CharField(
@@ -191,12 +213,15 @@ class StaffAccountProvisionForm(forms.Form):
 
 
 class StaffInviteActivationForm(forms.Form):
-    identifier = forms.CharField(max_length=254, widget=forms.TextInput(attrs={'class': _INPUT_CLS}))
+    identifier = forms.CharField(max_length=254, widget=forms.TextInput(attrs={
+        'class': _INPUT_CLS, 'autocomplete': 'username',
+    }))
     code = forms.RegexField(r'^\d{6}$', widget=forms.TextInput(attrs={
         'class': _INPUT_CLS, 'inputmode': 'numeric', 'autocomplete': 'one-time-code',
     }))
     new_password = forms.CharField(widget=forms.PasswordInput(attrs={
         'class': _INPUT_CLS, 'autocomplete': 'new-password',
+        'data-password-policy-input': 'true',
     }))
     confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={
         'class': _INPUT_CLS, 'autocomplete': 'new-password',
@@ -212,6 +237,60 @@ class StaffInviteActivationForm(forms.Form):
                 validate_password(password)
             except DjangoValidationError as exc:
                 self.add_error('new_password', forms.ValidationError(list(exc.messages)))
+        return cleaned
+
+
+class AuthenticatedPasswordChangeForm(forms.Form):
+    current_password = forms.CharField(
+        label='Current password',
+        widget=forms.PasswordInput(attrs={
+            'class': _INPUT_CLS,
+            'autocomplete': 'current-password',
+        }),
+    )
+    new_password = forms.CharField(
+        label='New password',
+        min_length=settings.PASSWORD_MINIMUM_LENGTH,
+        widget=forms.PasswordInput(attrs={
+            'class': _INPUT_CLS,
+            'autocomplete': 'new-password',
+            'data-password-policy-input': 'true',
+        }),
+    )
+    confirm_new_password = forms.CharField(
+        label='Confirm new password',
+        widget=forms.PasswordInput(attrs={
+            'class': _INPUT_CLS,
+            'autocomplete': 'new-password',
+        }),
+    )
+
+    def __init__(self, *args, user, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.user = user
+
+    def clean_current_password(self):
+        password = self.cleaned_data['current_password']
+        if not self.user.check_password(password):
+            raise forms.ValidationError('Current password is incorrect.')
+        return password
+
+    def clean_new_password(self):
+        password = self.cleaned_data['new_password']
+        try:
+            validate_password(password, user=self.user)
+        except DjangoValidationError as exc:
+            raise forms.ValidationError(list(exc.messages))
+        if self.user.check_password(password):
+            raise forms.ValidationError('Choose a password different from your current password.')
+        return password
+
+    def clean(self):
+        cleaned = super().clean()
+        password = cleaned.get('new_password')
+        confirmation = cleaned.get('confirm_new_password')
+        if password and confirmation and password != confirmation:
+            self.add_error('confirm_new_password', 'Passwords do not match.')
         return cleaned
 
 

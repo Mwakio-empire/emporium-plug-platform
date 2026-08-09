@@ -1,5 +1,17 @@
 # Manual acceptance test guide
 
+## Shopping location selector
+
+1. Open a product page as a guest and select **Choose your location**.
+2. Confirm all active counties are available and **City / area** is disabled until a county is selected.
+3. Select Kakamega and confirm only its listed locations appear.
+4. Select a listed location, save it and confirm the header and product card show the saved destination.
+5. Reload the page and confirm the destination remains available in the same browser session.
+6. Add a product to the cart, open checkout and choose **Send to my town**.
+7. Confirm the saved county and city/area are prefilled, while pickup remains the default on a fresh checkout page.
+8. Repeat with **My city / area isn't listed** and confirm the custom field is required.
+9. Confirm selecting or changing a shopping location does not create an order, reserve stock or display an invented transport fee.
+
 ## Purpose and release boundary
 
 This guide is the client's repeatable manual acceptance procedure for Emporium
@@ -200,16 +212,29 @@ tests. Before every case record stock and clear the cart.
 | UAT-CHK-01 | Add simple and variant products, change quantity, remove an item and refresh/reopen the browser without selecting a branch. | Quantities and totals are correct; the guest/customer cart persists; one internal branch fulfils the complete basket and no branch selector is shown. |
 | UAT-CHK-02 | Add as guest, then log in with an existing customer cart. | Merge is deterministic, respects stock limits and does not duplicate lines. |
 | UAT-CHK-03 | Open `/orders/checkout/` with an empty cart. | Checkout is blocked with a useful return-to-shopping action. |
-| UAT-CHK-04 | Open checkout with products in the cart. Confirm S18 pickup is selected by default and no public delivery selector is present. Open “Arrange on WhatsApp”. | WhatsApp targets 0116 153 335 and pre-fills the cart items, quantities, subtotal and request to confirm destination, transport fee, final total and expected arrival before payment. Opening WhatsApp does not create an order or reserve stock. |
+| UAT-CHK-04 | Open checkout with products in the cart. Confirm S18 pickup is selected by default. Select “Send to my town”, enter recipient/county/town/preferred collection area and submit. | A protected quote-status page opens. The request shows no order/payment/reservation, the Mon-Sat 8:00 AM-6:00 PM response target and WhatsApp fallback. Order, payment, coupon usage and stock remain unchanged. |
 | UAT-CHK-05 | Keep the selected S18 pickup method, choose an active pickup arrangement, choose cash on collection and submit after accepting the confirmation. | Pickup fee remains KES 0; explicit confirmation is required; one pickup order points to S18 and receives protected tracking access. |
-| UAT-CHK-06 | Attempt an expired/inactive pickup arrangement, invalid phone, expired coupon, exhausted coupon, below-minimum coupon and an invented coupon code. Also send a forged `ONLINE_DELIVERY` request through an API client. | The page/API explains or safely rejects each invalid value; public delivery is rejected with the WhatsApp-assisted direction; no order, payment or stock movement is created. |
+| UAT-CHK-06 | Attempt an expired/inactive pickup arrangement, invalid phone, expired coupon, exhausted coupon, below-minimum coupon and an invented coupon code. Also send a forged direct `ONLINE_DELIVERY` order through an API client. | The page/API explains or safely rejects each invalid value; direct delivery-order creation is rejected and directed to the quote flow; no unauthorized order, payment or stock movement is created. |
 | UAT-CHK-07 | Apply valid fixed and percentage coupons separately, then edit each code and reapply an invalid value. | The page explicitly confirms a valid coupon and saving; discount and final payable amount are exact; stale success feedback clears and confirmation resets after a price-affecting change. |
 | UAT-CHK-08 | Change a product price or stock in another authorized session after cart review, then submit. | Checkout detects the change, requires a new review and never sells unavailable stock. |
 | UAT-CHK-09 | Complete a guest order; open tracking in the protected link, a second browser and with an altered/expired token. | Valid access shows only that order; altered/expired/missing access cannot reveal it or enumerate other orders. |
 | UAT-CHK-10 | Download the authorized receipt PDF. | Correct order, items, totals, branch and payment state render; another customer cannot download it. |
-| UAT-CHK-11 | Open the storefront and checkout on a 390-pixel-wide phone and on desktop. Inspect the header, browser tab, selected S18 card and “Send to my town” WhatsApp card. | The header uses an accessible cart icon with quantity badge; the favicon uses the trolley emblem from the approved Emporium Plug logo; both fulfilment cards stack cleanly; no horizontal page overflow or clipped controls occur. |
+| UAT-CHK-11 | Open the storefront, checkout and a protected quote-status page on a 390-pixel-wide phone and on desktop. Inspect the header, selected S18 card, “Send to my town” form, countdown, totals and actions. | The favicon/header/cart remain correct; both fulfilment cards stack cleanly; quote content and notifications have readable widths; no horizontal overflow, clipping or overlapping floating controls occurs. |
+| UAT-CHK-12 | Have same-branch staff open the quote workspace, start review and publish operator, exact collection point, fee and ETA; try from another branch. | Authorized staff publishes once and the customer sees a 24-hour countdown. Cross-branch staff is denied. SMS/email attempts are queued only after commit. |
+| UAT-CHK-13 | On a quoted basket test flash/discounted goods, quantity pricing and coupons with/without “allow discounted items”; then change a product price before acceptance. | One coupon maximum; quantity pricing never stacks; discounted items reject coupons unless explicitly allowed; allowed coupon uses reduced subtotal; stale totals require reconfirmation; savings/fee/final total are separate. |
+| UAT-CHK-14 | Accept a valid quote twice, cancel M-Pesa on the handset and allow another quote to expire. | One order and one reservation are created; retry returns the same order; cancelled/failed payment releases stock exactly once under payment rules; quote expiry alone creates no order, coupon redemption or stock mutation. |
 
 Do not attempt a real STK Push locally. M-Pesa cases belong to Gate 2.
+
+#### County and town selector checks
+
+Run these cases on desktop and at a 390-pixel mobile viewport:
+
+1. Confirm S18 pickup remains selected by default. Choose **Send to my town** and verify that the town selector stays disabled until a county is selected.
+2. Choose Kakamega and verify only active Kakamega towns load in deterministic order. Change to Kisumu during loading and again after choosing a town; the stale town/request must clear and only Kisumu towns may remain.
+3. Complete the controls with keyboard navigation. Loading and failure text must be announced, focus must remain usable, and no control may clip or cause horizontal overflow.
+4. Choose **My town isn't listed**. The custom field must appear and become required only for that fallback. Simulate a town-endpoint failure and confirm the offered manual fallback works without clearing the rest of the form.
+5. Submit one listed and one custom destination. Each must create only a protected quote request—no order, payment, coupon redemption or stock reservation. Neither path may claim that a route or fee is approved.
 
 ### D. Walk-in POS and shifts
 

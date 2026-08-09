@@ -1,6 +1,7 @@
 # apps/users/serializers.py
 
 from rest_framework import serializers
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -29,7 +30,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         except DjangoValidationError as e:
             raise serializers.ValidationError(list(e.messages))
         return value
-    password = serializers.CharField(write_only=True, min_length=8)
+    password = serializers.CharField(
+        write_only=True,
+        min_length=settings.PASSWORD_MINIMUM_LENGTH,
+        max_length=128,
+    )
     confirm_password = serializers.CharField(write_only=True)
 
     def validate_phone_number(self, value):

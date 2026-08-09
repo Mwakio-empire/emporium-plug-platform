@@ -162,6 +162,28 @@ class InterBranchTransferTestCase(TestCase):
             transfer_id=transfer.pk, approving_manager=self.manager_a,
         )
 
+    def test_transfer_stock_rows_are_locked_in_stable_branch_order(self):
+        locked = {
+            self.branch_a.pk: self.stock_a,
+            self.branch_b.pk: self.stock_b,
+        }
+        calls = []
+
+        def record_lock(*, branch, variant=None, product=None):
+            calls.append(branch.pk)
+            return locked[branch.pk]
+
+        with patch.object(InventoryService, '_locked_stock', side_effect=record_lock):
+            source, destination = InventoryService._lock_transfer_stocks(
+                from_branch=self.branch_b,
+                to_branch=self.branch_a,
+                variant=self.variant,
+            )
+
+        self.assertEqual(calls, sorted((self.branch_a.pk, self.branch_b.pk)))
+        self.assertEqual(source.pk, self.stock_b.pk)
+        self.assertEqual(destination.pk, self.stock_a.pk)
+
     # --- request_transfer guards ---
 
     def test_same_branch_transfer_rejected(self):

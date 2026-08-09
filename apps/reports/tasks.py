@@ -80,7 +80,7 @@ def send_scheduled_report(schedule_id):
     now = timezone.now()
     with transaction.atomic():
         try:
-            schedule = ScheduledReport.objects.select_for_update().select_related(
+            schedule = ScheduledReport.objects.select_for_update(of=('self',)).select_related(
                 'branch',
             ).get(pk=schedule_id, is_active=True)
         except ScheduledReport.DoesNotExist:

@@ -65,7 +65,7 @@ class FulfilmentWorkspaceView(FulfilmentAccessMixin, TemplateView):
                 Order.Status.CUSTOMER_CONFIRMED, Order.Status.RETURNED,
             ]).select_related(
                 'branch', 'pickup_slot', 'delivery_zone', 'parcel_destination__county',
-                'parcel_dispatch',
+                'parcel_dispatch', 'delivery_quote_request',
                 'packing_checklist', 'delivery_assignment__rider__user',
             ).prefetch_related(
                 'items__product', 'items__variant__product',

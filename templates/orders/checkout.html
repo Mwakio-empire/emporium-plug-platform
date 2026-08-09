@@ -1,15 +1,16 @@
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Secure checkout - EmporiumPlug{% endblock %}
-{% block meta_description %}Review your Emporium Plug order for S18 pickup, or ask us on WhatsApp about sending it to your town.{% endblock %}
+{% block robots %}<meta name="robots" content="noindex,nofollow">{% endblock %}
+{% block meta_description %}Review an Emporium Plug S18 pickup order or request a verified transport quote to your Kenyan town.{% endblock %}
 
 {% block content %}
 <div class="max-w-6xl mx-auto py-8" aria-labelledby="checkout-heading">
     <div class="mb-7">
         <p class="text-sm font-semibold text-brand-700">Secure checkout</p>
         <h1 id="checkout-heading" class="mt-1 text-3xl font-bold text-slate-900">Review and confirm your order</h1>
-        <p class="mt-2 text-sm text-slate-600">Online checkout is for collection at S18. We recheck stock and prices before creating your order.</p>
-        <div class="mt-4 grid gap-2 text-xs text-slate-700 sm:grid-cols-3"><p class="rounded-lg bg-brand-50 p-3"><strong>S18 pickup</strong><br>Second floor, Gaberone Plaza.</p><p class="rounded-lg bg-brand-50 p-3"><strong>Need it sent?</strong><br>Ask us on WhatsApp before paying.</p><p class="rounded-lg bg-brand-50 p-3"><strong>Clear final total</strong><br>Review before placing the order.</p></div>
+        <p class="mt-2 text-sm text-slate-600">Choose S18 pickup or request a verified transport quote to a Kenyan town. We recheck stock and prices before an order is created.</p>
+        <div class="mt-4 grid gap-2 text-xs text-slate-700 sm:grid-cols-3"><p class="rounded-lg bg-brand-50 p-3"><strong>S18 pickup</strong><br>Second floor, Gaberone Plaza.</p><p class="rounded-lg bg-brand-50 p-3"><strong>Town parcel</strong><br>Request the collection point and fee before paying.</p><p class="rounded-lg bg-brand-50 p-3"><strong>Quote desk hours</strong><br>Monday–Saturday, 8:00 AM–6:00 PM.</p></div>
     </div>
 
     <div class="grid gap-7 lg:grid-cols-5">
@@ -22,6 +23,7 @@
                         <h3 class="font-semibold text-slate-900">{{ item.product.name }}</h3>
                         {% if item.variant %}<p class="text-xs text-slate-500">{{ item.variant }}</p>{% endif %}
                         <p class="text-xs text-slate-500">Quantity: {{ item.quantity }}</p>
+                        {% if item.wholesale_applied %}<p class="mt-1 text-xs font-semibold text-emerald-700">{{ item.quantity_discount_percentage|floatformat:0 }}% quantity price applied</p>{% endif %}
                     </div>
                     <p class="whitespace-nowrap font-semibold">KES {{ item.total_price }}</p>
                 </article>
@@ -33,7 +35,8 @@
             <dl class="mt-5 space-y-2 text-sm" aria-live="polite">
                 <div class="flex justify-between gap-4"><dt>Receiving method</dt><dd id="summary-fulfilment" class="text-right font-semibold text-slate-900">S18 pickup</dd></div>
                 <div class="flex justify-between"><dt>Subtotal</dt><dd id="summary-subtotal">KES {{ cart_total }}</dd></div>
-                <div class="flex justify-between"><dt>Discount</dt><dd id="summary-discount">KES 0.00</dd></div>
+                <div class="flex justify-between text-emerald-700"><dt>Product savings</dt><dd id="summary-product-discount" data-initial="{{ cart_product_discount }}">KES {{ cart_product_discount }}</dd></div>
+                <div class="flex justify-between text-emerald-700"><dt>Coupon saving</dt><dd id="summary-discount">KES 0.00</dd></div>
                 <div class="flex justify-between"><dt>Pickup fee</dt><dd id="summary-delivery">KES 0.00</dd></div>
                 <div class="flex justify-between border-t border-slate-200 pt-3 text-base font-bold"><dt>Total payable</dt><dd id="summary-total">KES {{ cart_total }}</dd></div>
             </dl>
@@ -44,13 +47,14 @@
         <section class="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-6" aria-labelledby="details-heading">
             <h2 id="details-heading" class="text-xl font-bold text-slate-900">Collection and payment</h2>
             {% if cart_items %}
-            <form id="checkout-form" class="mt-5 space-y-5" data-idempotency-key="{{ checkout_idempotency_key }}" novalidate>
+            <form id="checkout-form" class="mt-5 space-y-5" data-idempotency-key="{{ checkout_idempotency_key }}" data-towns-url="{% url 'logistics:towns' %}" data-saved-county="{{ shopper_location.county_code|default:'' }}" data-saved-town-id="{{ shopper_location.town_id|default:'' }}" data-saved-custom-town="{% if shopper_location.use_custom_town %}{{ shopper_location.town_name|default:'' }}{% endif %}" novalidate>
                 {% csrf_token %}
                 <fieldset class="space-y-4">
                     <legend class="text-base font-bold text-slate-900">Contact details</legend>
                     <div>
-                        <label for="customer-name" class="block text-sm font-semibold mb-1">Customer name <span class="font-normal text-slate-500">(optional)</span></label>
-                        <input id="customer-name" name="customer_name" value="{{ customer_name }}" autocomplete="name" maxlength="100" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
+                        <label for="customer-name" class="block text-sm font-semibold mb-1">Customer name</label>
+                        <input id="customer-name" name="customer_name" value="{{ customer_name }}" autocomplete="name" maxlength="100" aria-describedby="customer-name-help" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
+                        <p id="customer-name-help" class="mt-1 text-xs text-slate-500">Optional for S18 pickup; required for a town delivery quote.</p>
                     </div>
                     <div>
                         <label for="phone" class="block text-sm font-semibold mb-1">Phone number</label>
@@ -69,11 +73,11 @@
                     <div>
                         <p class="block text-sm font-semibold mb-2">Fulfilment method</p>
                         <div class="grid gap-3 sm:grid-cols-2">
-                            {% if delivery_whatsapp_url %}<a href="{{ delivery_whatsapp_url }}" target="_blank" rel="noopener noreferrer" class="rounded-xl border border-slate-300 bg-white p-4 transition hover:border-emerald-500 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:ring-offset-2" aria-label="Send to my town via WhatsApp">
-                                <span class="flex items-start gap-3"><span aria-hidden="true" class="mt-1 h-4 w-4 shrink-0 rounded-full border-2 border-slate-400 bg-white"></span><span><strong class="block text-sm text-slate-950">Send to my town</strong><span class="mt-1 block text-xs leading-5 text-slate-600">Arrange it on WhatsApp. We will confirm the collection point, transport fee and expected arrival before you pay.</span><span class="mt-3 inline-flex items-center text-xs font-bold text-emerald-800">Continue on WhatsApp <span aria-hidden="true" class="ml-1">→</span></span></span></span>
-                            </a>{% endif %}
+                            <label class="cursor-pointer rounded-xl border border-slate-300 bg-white p-4 transition hover:border-brand-500 hover:bg-brand-50">
+                                <span class="flex items-start gap-3"><input type="radio" name="fulfilment_choice" value="DELIVERY_QUOTE" class="mt-1 border-slate-300 text-brand-600 focus:ring-brand-600"><span><strong class="block text-sm text-slate-950">Send to my town</strong><span class="mt-1 block text-xs leading-5 text-slate-600">Request a delivery quote. We confirm the operator, collection point, fee and expected arrival before you pay.</span><span class="mt-3 inline-flex items-center text-xs font-bold text-brand-800">No order or stock reservation yet</span></span></span>
+                            </label>
                             <label class="rounded-xl border border-brand-600 bg-brand-50 p-4 {% if pickup_available %}cursor-pointer{% else %}cursor-not-allowed opacity-60{% endif %}">
-                                <span class="flex items-start gap-3"><input type="radio" name="order_type" value="ONLINE_PICKUP" required checked {% if not pickup_available %}disabled{% endif %} class="mt-1 border-slate-300 text-brand-600 focus:ring-brand-600"><span><strong class="block text-sm text-slate-950">S18 pickup</strong><span class="mt-1 block text-xs leading-5 text-slate-600">Collect from second floor, S18, Gaberone Plaza. Paid orders are held for two working days.</span></span></span>
+                                <span class="flex items-start gap-3"><input type="radio" name="fulfilment_choice" value="PICKUP" required checked {% if not pickup_available %}disabled{% endif %} class="mt-1 border-slate-300 text-brand-600 focus:ring-brand-600"><span><strong class="block text-sm text-slate-950">S18 pickup</strong><span class="mt-1 block text-xs leading-5 text-slate-600">Collect from second floor, S18, Gaberone Plaza. Paid orders are held for two working days.</span></span></span>
                             </label>
                         </div>
                         {% if not pickup_available %}<p class="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-950">S18 pickup times have not been configured for this cart. Please contact us on WhatsApp before paying.</p>{% endif %}
@@ -82,9 +86,36 @@
                         <label for="pickup-slot" class="block text-sm font-semibold mb-1">Pickup arrangement</label>
                         <select id="pickup-slot" name="pickup_slot_id" required {% if not pickup_available %}disabled{% endif %} class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600"></select>
                     </div>
+                    <div id="delivery-quote-fields" class="hidden space-y-4 rounded-xl border border-brand-200 bg-brand-50 p-4">
+                        <div class="rounded-lg bg-white p-3 text-sm leading-6 text-slate-700"><strong>This requests a transport price—it does not place an order.</strong> During opening hours we aim to respond within 30 minutes. If delayed, you can contact us on WhatsApp using your quote reference.</div>
+                        <div>
+                            <label for="quote-county" class="block text-sm font-semibold mb-1">County</label>
+                            <select id="quote-county" name="county_code" required disabled autocomplete="address-level1" class="w-full rounded-lg border-slate-300">
+                                <option value="">Select county</option>
+                                {% for county in delivery_counties %}<option value="{{ county.code }}">{{ county.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="quote-town" class="block text-sm font-semibold mb-1">City / area</label>
+                            <select id="quote-town" name="town_id" required disabled aria-describedby="quote-town-status" autocomplete="address-level2" class="w-full rounded-lg border-slate-300">
+                                <option value="">Select a county first</option>
+                            </select>
+                            <p id="quote-town-status" class="mt-1 text-xs text-slate-600" role="status" aria-live="polite">Select a county to see its listed cities and areas.</p>
+                            <button id="quote-town-retry" type="button" hidden class="mt-2 rounded-lg border border-brand-600 bg-white px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2">Retry loading locations</button>
+                        </div>
+                        <div id="quote-custom-town-field" hidden>
+                            <p class="mb-2 text-sm font-semibold text-slate-900">My city / area isn't listed</p>
+                            <label for="quote-custom-town" class="block text-sm font-semibold mb-1">Enter your city or area</label>
+                            <input id="quote-custom-town" name="custom_town" maxlength="100" disabled autocomplete="address-level2" class="w-full rounded-lg border-slate-300">
+                            <p class="mt-1 text-xs text-slate-600">We will verify the route and collection point before asking you to pay.</p>
+                        </div>
+                        <div><label for="quote-area" class="block text-sm font-semibold mb-1">Preferred collection area</label><input id="quote-area" maxlength="160" disabled placeholder="Example: main bus stage or town centre" class="w-full rounded-lg border-slate-300"></div>
+                        <div><label for="quote-notes" class="block text-sm font-semibold mb-1">Delivery note <span class="font-normal text-slate-500">(optional)</span></label><textarea id="quote-notes" maxlength="1000" rows="3" disabled class="w-full rounded-lg border-slate-300"></textarea></div>
+                        {% if delivery_whatsapp_url %}<a href="{{ delivery_whatsapp_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex text-sm font-bold text-emerald-800 underline">Need immediate help? Contact us on WhatsApp</a>{% endif %}
+                    </div>
                 </fieldset>
 
-                <fieldset class="space-y-4 border-t border-slate-200 pt-5">
+                <fieldset id="order-payment-fields" class="space-y-4 border-t border-slate-200 pt-5">
                     <legend class="text-base font-bold text-slate-900">Discount and payment</legend>
                     <div>
                         <label for="coupon" class="block text-sm font-semibold mb-1">Coupon code <span class="font-normal text-slate-500">(optional)</span></label>
@@ -103,7 +134,7 @@
                     </div>
                 </fieldset>
 
-                <label class="flex items-start gap-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
+                <label id="order-confirmation" class="flex items-start gap-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">
                     <input id="confirm-order" type="checkbox" required class="mt-1 rounded border-slate-300 text-brand-600 focus:ring-brand-600">
                     <span>I have reviewed the items, fulfilment details and final amount, and I confirm this order.</span>
                 </label>
@@ -115,7 +146,7 @@
                         <a id="create-account-link" class="hidden font-semibold text-green-900 underline" href="#">Create an optional account</a>
                     </div>
                 </div>
-                <button id="submit-checkout" type="submit" class="w-full rounded-lg bg-brand-600 py-3 font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">Confirm order</button>
+                <button id="submit-checkout" type="submit" class="w-full rounded-lg bg-brand-600 py-3 font-bold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:opacity-60">Confirm pickup order</button>
             </form>
             <form id="fallback-form" class="mt-5 hidden space-y-3 rounded-xl border border-amber-200 bg-amber-50 p-4">
                 <label for="mpesa-reference" class="block text-sm font-semibold text-amber-950">M-Pesa confirmation reference</label>
@@ -134,5 +165,5 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if cart_items %}<script src="{% static 'orders/checkout.js' %}" defer></script>{% endif %}
+{% if cart_items %}<script src="{% static 'orders/checkout.js' %}?v=20260802-location-prefill" defer></script>{% endif %}
 {% endblock %}

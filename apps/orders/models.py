@@ -20,6 +20,11 @@ class Order(models.Model):
         MPESA_STK = 'MPESA_STK', 'M-Pesa STK Push (Online)'
         COD = 'COD', 'Cash on Delivery/Collection'
 
+    class SalesChannel(models.TextChoices):
+        WEBSITE = 'WEBSITE', 'Website checkout'
+        WHATSAPP_ASSISTED = 'WHATSAPP_ASSISTED', 'WhatsApp assisted'
+        POS = 'POS', 'Walk-in POS'
+
     class Status(models.TextChoices):
         # Walk-in and shared statuses
         PENDING = 'PENDING', 'Pending Payment'
@@ -83,6 +88,12 @@ class Order(models.Model):
         blank=True,
         null=True,
         help_text="M-Pesa receipt number or manual cash reference.",
+    )
+    sales_channel = models.CharField(
+        max_length=20,
+        choices=SalesChannel.choices,
+        default=SalesChannel.WEBSITE,
+        db_index=True,
     )
     amount_received = models.DecimalField(
         max_digits=12,
@@ -221,6 +232,13 @@ class Order(models.Model):
     def __str__(self):
         return f"{self.order_number} ({self.get_status_display()})"
 
+    @property
+    def is_town_parcel(self):
+        return bool(
+            self.order_type == self.OrderType.ONLINE_DELIVERY
+            and (self.parcel_destination_id or self.parcel_town)
+        )
+
 
 class OrderItem(models.Model):
     """
@@ -231,6 +249,11 @@ class OrderItem(models.Model):
     - `unit_price` is locked at purchase time — never recalculate from current product price
     - `total_price` is computed from unit_price × quantity
     """
+
+    class PricingSource(models.TextChoices):
+        REGULAR = 'REGULAR', 'Regular price'
+        FLASH_SALE = 'FLASH_SALE', 'Flash-sale price'
+        WHOLESALE = 'WHOLESALE', 'Quantity price'
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='items')
 
@@ -256,6 +279,21 @@ class OrderItem(models.Model):
         decimal_places=2,
         help_text="Price locked at the exact moment of purchase.",
     )
+    regular_unit_price = models.DecimalField(
+        max_digits=12,
+        decimal_places=2,
+        default=Decimal('0.00'),
+        help_text='Regular price recorded when this order was placed.',
+    )
+    pricing_source = models.CharField(
+        max_length=20,
+        choices=PricingSource.choices,
+        default=PricingSource.REGULAR,
+    )
+    quantity_tier_minimum = models.PositiveIntegerField(null=True, blank=True)
+    quantity_discount_percentage = models.DecimalField(
+        max_digits=5, decimal_places=2, default=Decimal('0.00'),
+    )
     total_price = models.DecimalField(max_digits=12, decimal_places=2)
 
     class Meta:
@@ -279,6 +317,27 @@ class OrderItem(models.Model):
                 condition=models.Q(total_price__gte=0),
                 name='order_item_total_price_nonnegative',
             ),
+            models.CheckConstraint(
+                condition=models.Q(regular_unit_price__gte=0),
+                name='order_item_regular_unit_price_nonnegative',
+            ),
+            models.CheckConstraint(
+                condition=(
+                    models.Q(
+                        pricing_source='WHOLESALE',
+                        quantity_tier_minimum__isnull=False,
+                        quantity_discount_percentage__gt=0,
+                    )
+                    | (
+                        ~models.Q(pricing_source='WHOLESALE')
+                        & models.Q(
+                            quantity_tier_minimum__isnull=True,
+                            quantity_discount_percentage=0,
+                        )
+                    )
+                ),
+                name='order_item_quantity_price_evidence_consistent',
+            ),
         ]
 
     def clean(self):
@@ -290,11 +349,23 @@ class OrderItem(models.Model):
             raise ValidationError("An order item must reference either a variant or a product.")
 
     def full_clean(self, *args, **kwargs):
+        if (
+            self.pricing_source == self.PricingSource.REGULAR
+            and self.regular_unit_price == Decimal('0.00')
+            and self.unit_price is not None
+        ):
+            self.regular_unit_price = self.unit_price
         if self.unit_price is not None and self.quantity is not None:
             self.total_price = self.unit_price * self.quantity
         super().full_clean(*args, **kwargs)
 
     def save(self, *args, **kwargs):
+        if (
+            self.pricing_source == self.PricingSource.REGULAR
+            and self.regular_unit_price == Decimal('0.00')
+            and self.unit_price is not None
+        ):
+            self.regular_unit_price = self.unit_price
         if self.unit_price is not None and self.quantity is not None:
             self.total_price = self.unit_price * self.quantity
         super().save(*args, **kwargs)
@@ -356,3 +427,103 @@ class OrderStatusHistory(models.Model):
 
     def __str__(self):
         return f"{self.order.order_number}: {self.old_status} → {self.new_status}"
+
+
+class DeliveryQuoteClosure(models.Model):
+    """A client-configured date when the delivery quote desk is closed."""
+
+    date = models.DateField(unique=True)
+    label = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['date']
+
+    def __str__(self):
+        return f'{self.date}: {self.label}'
+
+
+class DeliveryQuoteRequest(models.Model):
+    """Pre-order request for a staff-verified Kenyan town parcel fee."""
+
+    class Status(models.TextChoices):
+        REQUESTED = 'REQUESTED', 'Requested'
+        REVIEWING = 'REVIEWING', 'Being reviewed'
+        QUOTED = 'QUOTED', 'Quote ready'
+        ACCEPTED = 'ACCEPTED', 'Accepted'
+        DECLINED = 'DECLINED', 'Declined'
+        EXPIRED = 'EXPIRED', 'Expired'
+        CANCELLED = 'CANCELLED', 'Cancelled'
+
+    reference = models.CharField(max_length=20, unique=True, editable=False)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.REQUESTED, db_index=True)
+    branch = models.ForeignKey('branches.Branch', on_delete=models.PROTECT, related_name='delivery_quote_requests')
+    customer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='delivery_quote_requests')
+    guest_session_hash = models.CharField(max_length=64, blank=True, default='')
+    customer_phone = models.CharField(max_length=15)
+    customer_name = models.CharField(max_length=100)
+    customer_email = models.EmailField(blank=True, default='')
+    county = models.CharField(max_length=80)
+    town = models.CharField(max_length=100)
+    preferred_collection_area = models.CharField(max_length=160)
+    notes = models.TextField(blank=True, default='')
+    cart_snapshot = models.JSONField(default=list)
+    requested_subtotal = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    response_due_at = models.DateTimeField(db_index=True)
+    review_started_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True, related_name='delivery_quotes_reviewed')
+    transport_operator = models.CharField(max_length=120, blank=True, default='')
+    collection_point = models.CharField(max_length=160, blank=True, default='')
+    delivery_fee = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal('0.00'))
+    expected_arrival = models.CharField(max_length=180, blank=True, default='')
+    quoted_at = models.DateTimeField(null=True, blank=True)
+    expires_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+    declined_at = models.DateTimeField(null=True, blank=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+    order = models.OneToOneField('orders.Order', on_delete=models.PROTECT, null=True, blank=True, related_name='delivery_quote_request')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+        constraints = [
+            models.CheckConstraint(condition=models.Q(requested_subtotal__gte=0), name='delivery_quote_subtotal_nonnegative'),
+            models.CheckConstraint(condition=models.Q(delivery_fee__gte=0), name='delivery_quote_fee_nonnegative'),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self.reference:
+            self.reference = f'EPQ-{uuid.uuid4().hex[:8].upper()}'
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.reference} ({self.get_status_display()})'
+
+
+class DeliveryQuoteStatusHistory(models.Model):
+    """Immutable evidence of every delivery quote lifecycle transition."""
+
+    quote = models.ForeignKey(
+        DeliveryQuoteRequest, on_delete=models.CASCADE, related_name='status_history',
+    )
+    old_status = models.CharField(max_length=20, blank=True)
+    new_status = models.CharField(max_length=20, choices=DeliveryQuoteRequest.Status.choices)
+    changed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name='delivery_quote_status_changes',
+    )
+    note = models.TextField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def save(self, *args, **kwargs):
+        if self.pk:
+            raise ValidationError('Delivery quote history records are immutable.')
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError('Delivery quote history records are immutable.')

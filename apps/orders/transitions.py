@@ -86,7 +86,7 @@ class OrderTransitionService:
             return set()
         if order.order_type == Order.OrderType.ONLINE_DELIVERY:
             allowed.discard(Order.Status.READY_FOR_PICKUP)
-            if order.parcel_destination_id:
+            if order.is_town_parcel:
                 allowed.discard(Order.Status.RIDER_ASSIGNED)
                 allowed.discard(Order.Status.OUT_FOR_DELIVERY)
                 allowed.discard(Order.Status.DELIVERED)

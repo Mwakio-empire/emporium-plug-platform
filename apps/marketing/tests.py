@@ -112,6 +112,72 @@ class MarketingPromotionsAndFeedbackMasterTestSuite(TestCase):
         valid_coupon.refresh_from_db()
         self.assertEqual(valid_coupon.times_used, 1)
 
+    def test_coupon_rejects_flash_sale_order_unless_campaign_opts_in(self):
+        """A normal coupon must not silently stack on an item-level sale price."""
+        self.order_item.pricing_source = OrderItem.PricingSource.FLASH_SALE
+        self.order_item.regular_unit_price = Decimal('18000.00')
+        self.order_item.save(update_fields=['pricing_source', 'regular_unit_price'])
+        coupon = Coupon.objects.create(
+            code='NOFLASH10',
+            discount_type=Coupon.DiscountType.PERCENTAGE,
+            value=Decimal('10.00'),
+            active_from=timezone.now() - timedelta(hours=1),
+            active_to=timezone.now() + timedelta(hours=1),
+            usage_limit=10,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            'This coupon cannot be combined with products that are already discounted.',
+        ):
+            PromotionService.validate_and_apply_coupon_campaign(self.order, coupon.code)
+
+    def test_opted_in_coupon_uses_already_discounted_subtotal(self):
+        """The explicit opt-in stacks once and calculates from the sale subtotal."""
+        self.order_item.pricing_source = OrderItem.PricingSource.FLASH_SALE
+        self.order_item.regular_unit_price = Decimal('18000.00')
+        self.order_item.save(update_fields=['pricing_source', 'regular_unit_price'])
+        coupon = Coupon.objects.create(
+            code='FLASHOK10',
+            discount_type=Coupon.DiscountType.PERCENTAGE,
+            value=Decimal('10.00'),
+            active_from=timezone.now() - timedelta(hours=1),
+            active_to=timezone.now() + timedelta(hours=1),
+            usage_limit=10,
+            allow_discounted_items=True,
+        )
+
+        updated = PromotionService.validate_and_apply_coupon_campaign(self.order, coupon.code)
+
+        self.assertEqual(updated.discount_amount, Decimal('3000.00'))
+        self.assertEqual(updated.total_payable, Decimal('27000.00'))
+
+    def test_coupon_rejects_wholesale_even_when_discounted_items_are_allowed(self):
+        """Wholesale pricing is never eligible for coupon stacking."""
+        self.order_item.pricing_source = OrderItem.PricingSource.WHOLESALE
+        self.order_item.regular_unit_price = Decimal('18000.00')
+        self.order_item.quantity_tier_minimum = 2
+        self.order_item.quantity_discount_percentage = Decimal('16.67')
+        self.order_item.save(update_fields=[
+            'pricing_source', 'regular_unit_price', 'quantity_tier_minimum',
+            'quantity_discount_percentage',
+        ])
+        coupon = Coupon.objects.create(
+            code='NEVERWHOLESALE',
+            discount_type=Coupon.DiscountType.FIXED,
+            value=Decimal('100.00'),
+            active_from=timezone.now() - timedelta(hours=1),
+            active_to=timezone.now() + timedelta(hours=1),
+            usage_limit=10,
+            allow_discounted_items=True,
+        )
+
+        with self.assertRaisesMessage(
+            ValidationError,
+            'A quantity price is already applied. Coupons cannot be combined with quantity pricing.',
+        ):
+            PromotionService.validate_and_apply_coupon_campaign(self.order, coupon.code)
+
     def test_flash_sale_price_resolution(self):
         """Validates that product price evaluation routes to flash sale values during active windows."""
         current_price = PromotionService.resolve_live_variant_market_price(self.variant)

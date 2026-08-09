@@ -30,7 +30,7 @@ def send_branch_low_stock_alerts():
     transitions = defaultdict(list)
     now = timezone.now()
     with transaction.atomic():
-        stocks = list(Stock.objects.select_for_update().select_related(
+        stocks = list(Stock.objects.select_for_update(of=('self',)).select_related(
             'branch', 'product', 'variant__product',
         ))
         for stock in stocks:

@@ -14,6 +14,7 @@ Status: client-supplied business rules recorded on 22 July 2026. Implementation 
 
 ## Client-provided contacts
 
+- 0797 727 486
 - 0739 150 246
 - 0116 153 335
 - 0783 025 355
@@ -45,8 +46,14 @@ The supplied notice says that all sales are final and no return or refund is all
 
 The storefront “Order via WhatsApp” link uses the approved business number 0116 153 335 (`+254116153335`). The setting remains environment-overridable for controlled deployments. WhatsApp starts an assisted conversation only: it does not reserve stock, create a system order, prove payment, or bypass checkout controls. Staff must create/verify the order and payment in the platform.
 
-## Approved launch decision: pickup-first checkout
+## Approved launch decision: pickup-first checkout and verified town quotes
 
-Public online checkout supports S18 pickup only and selects it by default. Customers who want a parcel sent to another town use the cart-aware WhatsApp link. Staff must confirm the collection point, operator, transport charge, final total and expected arrival before requesting payment. The customer must not place a pickup order and assume it has silently become a parcel order; staff must record the assisted parcel order and its agreed commercial details in the platform.
+S18 pickup remains selected by default. A customer who wants a parcel sent to another Kenyan town submits a structured quote request from checkout. The request captures recipient contact details, county, town, preferred collection area and a snapshot of the basket. It is not an order, does not reserve stock and does not initiate payment.
+
+The quote desk operates Monday through Saturday from 8:00 AM to 6:00 PM Africa/Nairobi. The response target is 30 working minutes; Sunday and configured closure/public-holiday dates are excluded. Staff publishes the transport operator, exact collection point, transport fee and expected arrival. A published quote is valid for 24 hours. WhatsApp is a help/escalation channel if the response is delayed, not the source of the commercial record.
+
+Before acceptance, the platform rechecks current products, stock, quantity pricing, product promotions, coupon eligibility and the final payable total. The customer must explicitly accept that current total. Only then is one prepaid M-Pesa town-parcel order created and stock reserved. Staff may not silently convert an S18-pickup order into a parcel order.
+
+Discount stacking is controlled: one coupon per order; quantity/wholesale pricing never stacks with a coupon; discounted or flash-sale items reject coupons unless that coupon is explicitly configured to allow discounted items. When allowed, the coupon is calculated from the already-reduced subtotal. Product savings, coupon savings, transport fee and final total must be shown separately.
 
 The launch pickup arrangement is “Pickup after ready notification”; the site must not invent opening-hour windows. Staff marks the order ready and the customer then has the approved two-working-day collection period.

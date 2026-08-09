@@ -1,7 +1,11 @@
 import hashlib
 import hmac
+import json
 import re
 from dataclasses import dataclass
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 
 import requests
 from django.conf import settings
@@ -72,19 +76,29 @@ class NotificationEngineService:
         if settings.AFRICASTALKING_SENDER_ID:
             payload['from'] = settings.AFRICASTALKING_SENDER_ID
         try:
-            response = requests.post(
-                endpoint, data=payload,
+            request = Request(
+                endpoint,
+                data=urlencode(payload).encode('utf-8'),
                 headers={
                     'ApiKey': settings.AFRICASTALKING_API_KEY,
                     'Accept': 'application/json',
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                timeout=10,
+                method='POST',
             )
-            data = response.json()
+            try:
+                with urlopen(request, timeout=10) as response:
+                    status_code = response.status
+                    data = json.loads(response.read().decode('utf-8'))
+            except HTTPError as exc:
+                status_code = exc.code
+                try:
+                    data = json.loads(exc.read().decode('utf-8'))
+                except (UnicodeDecodeError, json.JSONDecodeError):
+                    data = {}
             recipient = (data.get('SMSMessageData', {}).get('Recipients') or [{}])[0]
-            status = str(recipient.get('status') or f'HTTP_{response.status_code}')[:80]
-            success = response.ok and status in {'Success', 'Sent'}
+            status = str(recipient.get('status') or f'HTTP_{status_code}')[:80]
+            success = 200 <= status_code < 300 and status in {'Success', 'Sent'}
             return ProviderResult(
                 success=success,
                 provider='africastalking',
@@ -92,12 +106,12 @@ class NotificationEngineService:
                 message_id=str(recipient.get('messageId') or '')[:120],
                 error_code=str(recipient.get('statusCode') or '')[:80] if not success else '',
                 response_summary=(
-                    f"http={response.status_code}; status={status}; "
+                    f"http={status_code}; status={status}; "
                     f"cost={str(recipient.get('cost') or '')[:40]}"
                 )[:300],
-                retryable=response.status_code >= 500 or response.status_code == 429,
+                retryable=status_code >= 500 or status_code == 429,
             )
-        except (requests.RequestException, ValueError) as exc:
+        except (URLError, TimeoutError, UnicodeDecodeError, json.JSONDecodeError) as exc:
             return ProviderResult(
                 success=False, provider='africastalking', status='NETWORK_ERROR',
                 error_code=type(exc).__name__[:80], retryable=True,

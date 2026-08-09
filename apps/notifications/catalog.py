@@ -15,6 +15,8 @@ class EventType:
     COLLECTION_CONFIRMED = 'COLLECTION_CONFIRMED'
     DELIVERY_DISPUTE = 'DELIVERY_DISPUTE'
     LOW_STOCK = 'LOW_STOCK'
+    BACK_IN_STOCK = 'BACK_IN_STOCK'
+    DELIVERY_QUOTE_READY = 'DELIVERY_QUOTE_READY'
     TRANSFER = 'TRANSFER'
     VOID = 'VOID'
     SHIFT_VARIANCE = 'SHIFT_VARIANCE'
@@ -34,6 +36,8 @@ EVENT_CATALOG = {
     EventType.COLLECTION_CONFIRMED: ('pickup.collected', Notification.Criticality.INFORMATIONAL, False),
     EventType.DELIVERY_DISPUTE: ('delivery.dispute', Notification.Criticality.CRITICAL, True),
     EventType.LOW_STOCK: ('inventory.low_stock', Notification.Criticality.IMPORTANT, False),
+    EventType.BACK_IN_STOCK: ('catalog.back_in_stock', Notification.Criticality.INFORMATIONAL, False),
+    EventType.DELIVERY_QUOTE_READY: ('delivery.quote_ready', Notification.Criticality.IMPORTANT, False),
     EventType.TRANSFER: ('inventory.transfer', Notification.Criticality.IMPORTANT, False),
     EventType.VOID: ('pos.void', Notification.Criticality.CRITICAL, True),
     EventType.SHIFT_VARIANCE: ('shift.variance', Notification.Criticality.CRITICAL, True),

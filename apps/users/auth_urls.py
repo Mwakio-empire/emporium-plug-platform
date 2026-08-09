@@ -8,6 +8,7 @@ urlpatterns = [
     path('signup/', views.CustomerSignupView.as_view(), name='signup'),
     path('logout/', views.CustomerLogoutView.as_view(), name='logout'),
     path('profile/', views.CustomerProfileView.as_view(), name='profile'),
+    path('password/change/', views.AuthenticatedPasswordChangeView.as_view(), name='password-change'),
     path('verify-otp/', views.OTPVerifyView.as_view(), name='verify-otp'),
     path('verify-otp/resend/', views.OTPResendView.as_view(), name='resend-otp'),
     path('verify-staff-otp/', views.StaffOTPVerifyView.as_view(), name='verify-staff-otp'),

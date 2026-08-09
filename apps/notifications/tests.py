@@ -1,13 +1,18 @@
 from unittest.mock import patch
+from io import BytesIO
+from urllib.error import HTTPError
+from datetime import timedelta
 
 from django.test import TestCase, override_settings
+from django.core import mail
 from django.urls import reverse
+from django.utils import timezone
 
 from branches.models import Branch
 from notifications.catalog import EventType
 from notifications.models import Notification, NotificationDeliveryAttempt
 from notifications.services import NotificationEngineService, ProviderResult, normalize_phone
-from notifications.tasks import queue_sms_event, send_sms_task
+from notifications.tasks import queue_email_event, queue_sms_event, send_email_task, send_sms_task
 from users.models import User
 
 
@@ -16,36 +21,133 @@ class NotificationProviderTests(TestCase):
         self.assertEqual(normalize_phone('0711 223 344'), '+254711223344')
 
     @override_settings(NOTIFICATION_PROVIDER='console')
-    @patch('notifications.services.requests.post')
-    def test_safe_provider_never_contacts_external_gateway(self, mocked_post):
+    @patch('notifications.services.urlopen')
+    def test_safe_provider_never_contacts_external_gateway(self, mocked_urlopen):
         result = NotificationEngineService.deliver_sms('+254711223344', 'Test message')
         self.assertTrue(result.success)
         self.assertTrue(result.suppressed)
-        mocked_post.assert_not_called()
+        mocked_urlopen.assert_not_called()
 
     @override_settings(
         NOTIFICATION_PROVIDER='africastalking',
         AFRICASTALKING_USERNAME='sandbox', AFRICASTALKING_API_KEY='test-key',
         AFRICASTALKING_SENDER_ID='',
     )
-    @patch('notifications.services.requests.post')
-    def test_africas_talking_success_is_parsed_without_message_body_logging(self, mocked_post):
-        mocked_post.return_value.ok = True
-        mocked_post.return_value.status_code = 201
-        mocked_post.return_value.json.return_value = {
+    @patch('notifications.services.urlopen')
+    def test_africas_talking_success_is_parsed_without_message_body_logging(self, mocked_urlopen):
+        response = BytesIO(__import__('json').dumps({
             'SMSMessageData': {'Recipients': [{
                 'status': 'Success', 'statusCode': 101,
                 'messageId': 'AT-123', 'cost': 'KES 0.80',
             }]},
-        }
+        }).encode('utf-8'))
+        response.status = 201
+        mocked_urlopen.return_value.__enter__.return_value = response
         result = NotificationEngineService.deliver_sms('+254711223344', 'Private body')
         self.assertTrue(result.success)
         self.assertEqual(result.message_id, 'AT-123')
         self.assertNotIn('Private body', result.response_summary)
-        self.assertEqual(mocked_post.call_count, 1)
+        self.assertEqual(mocked_urlopen.call_count, 1)
+
+    @override_settings(
+        NOTIFICATION_PROVIDER='africastalking',
+        AFRICASTALKING_USERNAME='sandbox', AFRICASTALKING_API_KEY='bad-key',
+        AFRICASTALKING_SENDER_ID='',
+    )
+    @patch('notifications.services.urlopen')
+    def test_africas_talking_http_rejection_is_not_a_network_error(self, mocked_urlopen):
+        mocked_urlopen.side_effect = HTTPError(
+            'https://api.sandbox.africastalking.com/version1/messaging',
+            401, 'Unauthorized', {}, BytesIO(b''),
+        )
+        result = NotificationEngineService.deliver_sms('+254711223344', 'Private body')
+        self.assertFalse(result.success)
+        self.assertEqual(result.status, 'HTTP_401')
+        self.assertFalse(result.retryable)
 
 
 class DurableNotificationTests(TestCase):
+    def delivery_in_progress(self, *, expires_at):
+        return Notification.objects.create(
+            event_type=EventType.PICKUP_READY,
+            template_key='pickup.ready.sms',
+            recipient='+254711223344',
+            recipient_hash='a' * 64,
+            reference_type='order',
+            reference_id='20',
+            dedupe_key='pickup-ready-order-20',
+            message_fingerprint='b' * 64,
+            status=Notification.Status.SENDING,
+            attempt_count=1,
+            delivery_lease_token='active-lease',
+            delivery_lease_expires_at=expires_at,
+        )
+
+    @patch('notifications.tasks.NotificationEngineService.deliver_sms')
+    def test_active_delivery_lease_blocks_concurrent_duplicate(self, mocked_sms):
+        notification = self.delivery_in_progress(
+            expires_at=timezone.now() + timedelta(minutes=1),
+        )
+
+        result = send_sms_task(
+            '+254711223344', 'Order ready', EventType.PICKUP_READY,
+            'order', '20', notification.dedupe_key,
+        )
+
+        self.assertFalse(result)
+        mocked_sms.assert_not_called()
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, Notification.Status.SENDING)
+        self.assertEqual(notification.attempt_count, 1)
+
+    @patch('notifications.tasks.NotificationEngineService.deliver_sms')
+    def test_expired_delivery_lease_requires_manual_reconciliation(self, mocked_sms):
+        notification = self.delivery_in_progress(
+            expires_at=timezone.now() - timedelta(seconds=1),
+        )
+
+        result = send_sms_task(
+            '+254711223344', 'Order ready', EventType.PICKUP_READY,
+            'order', '20', notification.dedupe_key,
+        )
+
+        self.assertFalse(result)
+        mocked_sms.assert_not_called()
+        notification.refresh_from_db()
+        self.assertEqual(notification.status, Notification.Status.MANUAL_FOLLOWUP)
+        self.assertEqual(notification.last_error_code, 'DELIVERY_OUTCOME_UNKNOWN')
+
+    @override_settings(TRANSACTIONAL_EMAIL_ENABLED=False)
+    @patch('notifications.tasks.EmailMessage.send')
+    def test_safe_email_is_suppressed_without_contacting_backend(self, mocked_send):
+        result = send_email_task(
+            'buyer@example.test', 'Order received', 'Private order details',
+            EventType.ORDER_PLACED, 'order', '19', 'email-order-19',
+        )
+        self.assertTrue(result)
+        mocked_send.assert_not_called()
+        notification = Notification.objects.get()
+        self.assertEqual(notification.channel, Notification.Channel.EMAIL)
+        self.assertEqual(notification.status, Notification.Status.SUPPRESSED)
+        self.assertFalse(hasattr(notification, 'message'))
+
+    @override_settings(
+        TRANSACTIONAL_EMAIL_ENABLED=True,
+        EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend',
+        DEFAULT_FROM_EMAIL='orders@emporium.test',
+    )
+    def test_enabled_email_sends_once_and_records_delivery(self):
+        args = (
+            'buyer@example.test', 'Order received', 'Track your order safely.',
+            EventType.ORDER_PLACED, 'order', '20', 'email-order-20',
+        )
+        self.assertTrue(send_email_task(*args))
+        self.assertTrue(send_email_task(*args))
+        self.assertEqual(len(mail.outbox), 1)
+        notification = Notification.objects.get()
+        self.assertEqual(notification.status, Notification.Status.SENT)
+        self.assertEqual(notification.delivery_attempts.count(), 1)
+
     @override_settings(NOTIFICATION_PROVIDER='console')
     def test_safe_delivery_is_durable_and_contains_no_message_body(self):
         result = send_sms_task(

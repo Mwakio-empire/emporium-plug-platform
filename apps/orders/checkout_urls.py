@@ -2,10 +2,12 @@
 
 from django.urls import path
 from . import checkout_views
+from .delivery_quote_views import DeliveryQuoteCreateView
 
 app_name = 'checkout'
 
 urlpatterns = [
+    path('delivery-quotes/', DeliveryQuoteCreateView.as_view(), name='delivery-quote-create'),
     path('preview/', checkout_views.CheckoutPreviewView.as_view(), name='preview'),
     path('init/', checkout_views.CheckoutInitView.as_view(), name='init'),
     path('pay/', checkout_views.CheckoutPaymentInitView.as_view(), name='pay'),

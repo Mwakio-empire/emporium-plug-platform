@@ -59,6 +59,11 @@ class Phase10ReportTests(TestCase):
         order = Order.objects.create(
             branch=branch or self.branch,
             order_type=order_type,
+            sales_channel=(
+                Order.SalesChannel.POS
+                if order_type == Order.OrderType.WALK_IN
+                else Order.SalesChannel.WEBSITE
+            ),
             customer_phone='+254711000000',
             processed_by=self.manager if (branch or self.branch) == self.branch else self.other_manager,
             payment_method=Order.PaymentMethod.CASH,
@@ -96,6 +101,22 @@ class Phase10ReportTests(TestCase):
         self.assertEqual(report['sales']['revenue'], Decimal('3000.00'))
         self.assertEqual(report['sales']['orders'], 2)
         self.assertEqual(sum(row['amount'] for row in report['sales']['payment_breakdown']), Decimal('3000.00'))
+
+    def test_sales_channels_separate_whatsapp_website_and_pos(self):
+        self.order(total='1000.00')
+        website = self.order(
+            total='2000.00', order_type=Order.OrderType.ONLINE_PICKUP,
+        )
+        whatsapp = self.order(
+            total='3000.00', order_type=Order.OrderType.ONLINE_PICKUP,
+        )
+        whatsapp.sales_channel = Order.SalesChannel.WHATSAPP_ASSISTED
+        whatsapp.save(update_fields=['sales_channel'])
+
+        rows = {row['sales_channel']: row for row in self.report(self.branch)['sales']['channel_breakdown']}
+        self.assertEqual(rows[Order.SalesChannel.POS]['amount'], Decimal('1000.00'))
+        self.assertEqual(rows[Order.SalesChannel.WEBSITE]['amount'], Decimal('2000.00'))
+        self.assertEqual(rows[Order.SalesChannel.WHATSAPP_ASSISTED]['amount'], Decimal('3000.00'))
 
     def test_recognition_uses_success_transition_date_not_order_creation_date(self):
         order = self.order(

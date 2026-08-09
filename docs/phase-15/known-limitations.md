@@ -10,19 +10,27 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 - The final Items 11–15 batch passes the complete local test suite, but GitHub
   Actions cannot be marked green until that batch is committed and pushed.
 - Daraja and notification providers are verified through mocks/local controls, not complete provider certification.
+- Customer restock requests are implemented and locally verified, but actual SMS delivery remains subject to the same Africa's Talking staging/production certification. The alert reports observed availability and never guarantees or reserves stock.
 - Scheduled-report email is locally failure-safe and configured for Brevo SMTP, but remains disabled until the business domain/sender and staging provider delivery are manually verified.
-- Managed PostgreSQL PITR and the off-site logical archive have not been restored in a controlled host test. Archive encryption/checksum/catalog verification is implemented locally but is not restore evidence.
+- Customer order and verification-code email is implemented with durable delivery evidence but remains safely suppressed until the same client-owned sender and SMTP credentials pass staging certification.
+- A local PostgreSQL custom-format archive has been restored successfully into an
+  isolated database with matching core counts. Managed-host PITR and off-site
+  encrypted-archive restore remain unverified until staging is funded.
 - Monitoring endpoints and the Beat-to-worker heartbeat are implemented locally, but no external uptime, Render or Sentry alert/recovery delivery has been proven because staging is unfunded.
 - The load tool is locally verified, but production-sized staging load, an approved peak-workload model and an independent penetration test/retest are outstanding launch gates.
-- Representative PostgreSQL load/concurrency, Nairobi-to-Frankfurt latency, external security and client UAT remain pending.
-- Local SQLite skips one `select_for_update` test and cannot prove row-lock behavior.
+- The current working tree's **710-test** regression passes on PostgreSQL with
+  zero skips and zero failures. The SQLite run also passes with one expected skip
+  because SQLite does not expose `select_for_update`. The committed staging release
+  must repeat this evidence. Production-sized load, Nairobi-to-Frankfurt latency,
+  external security and client UAT remain pending.
 
 ## Business configuration
 
+- The four `DEMO-` catalogue products and their quantities are visual/staging fixtures, not client-approved production merchandise. Production launch requires the client-provided catalogue, images, prices, variant matrix and counted opening stock; do not run `seed_demo_catalog` in production.
 - The approved OTC Mall, Gaberone Plaza S18 and Gaberone Plaza B03 records are reproducibly configured by `configure_business_branches`; the command still needs to be run after migrations when each external environment is provisioned.
 - Real staff assignments, opening stock and pickup arrangements require controlled environment-specific onboarding and must not be invented by a seed command.
-- Parcel handoff, arrival and collection records exist for future controlled use, but public automated parcel checkout is intentionally disabled. Launch checkout is S18 pickup only; town parcels are arranged through WhatsApp and must be recorded by staff after the route and final charge are agreed.
-- Pickup working days are Monday-Saturday; Kenyan public holidays are not modelled.
+- Town-parcel quote requests and acceptance are implemented, but the client must approve the real staff rota, supported parcel restrictions, loss/damage wording and operator-selection procedure. Fares are deliberately entered by authorized staff after route verification; no invented static route table is published.
+- Quote working hours are Monday-Saturday, 8:00 AM-6:00 PM Africa/Nairobi. Closure/public-holiday dates can be configured in administration, but the client must maintain that calendar.
 - WhatsApp assists conversation only; it does not reserve stock or verify payment.
 
 ## Financial and returns boundaries
@@ -47,3 +55,4 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 - Bulk catalog/inventory import/export is not implemented because no format/workflow is approved.
 - Route optimization, public live rider maps and native mobile apps are absent.
 - Image search is deferred; text/category/filters and WhatsApp assistance remain discovery paths.
+- Preorders and backorders remain deliberately disabled. Restock alerts are informational only and cannot create negative or reserved inventory.

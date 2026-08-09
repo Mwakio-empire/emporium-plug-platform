@@ -13,6 +13,9 @@
 | Elasticsearch/OpenSearch | P3 | Current scale does not demonstrate need. |
 | Advanced routing/live rider tracking | P3 | Needs carrier/GPS/privacy design and value proof. |
 | Loyalty programme | P3 | Earn/redeem/expiry/accounting rules not approved. |
+| Gift cards | P3 | Creates a financial liability and requires issuance, redemption, expiry, fraud, refund and reconciliation rules. |
+| Store credit | P3 | Creates a customer balance ledger and refund/accounting obligations; it must not be represented as a simple discount. |
+| Referrals | P3 | If approved later, a reward becomes eligible only after the referred customer completes a paid, non-refunded purchase. Self-referral, duplicate-account, cancellation and return-reversal controls are prerequisites. |
 | Marketplace/vendors | Out of scope | Client is one unified retailer. |
 | Native mobile applications | P3 | Responsive web must launch and stabilize first. |
 | Advanced personalization | P3 | Requires lawful data, consent/purpose and measurable benefit. |

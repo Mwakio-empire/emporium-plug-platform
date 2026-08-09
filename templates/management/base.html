@@ -1,0 +1,55 @@
+{% load static %}
+<!doctype html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Operations | Emporium Plug{% endblock %}</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="icon" href="{% static 'branding/favicon.png' %}" type="image/png">
+  <link rel="stylesheet" href="{% static 'core/storefront.css' %}?v=20260729a">
+  <link rel="stylesheet" href="{% static 'core/management.css' %}?v=20260729">
+  {% block extra_head %}{% endblock %}
+</head>
+<body class="ep-admin-body">
+  <a class="ep-skip" href="#management-main">Skip to main content</a>
+  <div class="ep-admin-shell">
+    <aside class="ep-sidebar" id="management-sidebar" aria-label="Operations navigation">
+      <div class="ep-brand"><a href="{% url 'core:analytics_dashboard' %}" aria-label="Emporium Plug home">Emporium<span class="font-medium text-brand-600">Plug</span></a><button class="ep-sidebar-close" type="button" data-sidebar-close aria-label="Close navigation">&times;</button></div>
+      <nav class="ep-nav">
+        <p class="ep-nav-heading">Overview</p>
+        {% if user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a class="ep-nav-link {% block nav_overview %}{% endblock %}" href="{% url 'core:analytics_dashboard' %}"><span class="ep-nav-icon">⌂</span><span>Operations overview</span></a>{% elif user.role == 'INVENTORY_MANAGER' %}<a class="ep-nav-link" href="{% url 'inventory:inventory-workspace' %}"><span class="ep-nav-icon">⌂</span><span>Inventory home</span></a>{% else %}<a class="ep-nav-link" href="{% url 'logistics:fulfilment-workspace' %}"><span class="ep-nav-icon">⌂</span><span>Orders home</span></a>{% endif %}
+
+        <p class="ep-nav-heading">Daily operations</p>
+        <a class="ep-nav-link {% if request.resolver_match.namespace == 'logistics' %}is-active{% endif %}" href="{% url 'logistics:fulfilment-workspace' %}"><span class="ep-nav-icon">□</span><span>Orders &amp; fulfilment</span><span class="ep-nav-help" tabindex="0" data-tooltip="Pack, hand over and track online pickup or parcel orders." aria-label="Help for orders and fulfilment">?</span></a>
+        {% if user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a class="ep-nav-link {% if request.resolver_match.url_name == 'delivery-quote-workspace' or request.resolver_match.url_name == 'delivery-quote-detail' %}is-active{% endif %}" href="{% url 'delivery-quote-workspace' %}"><span class="ep-nav-icon">⇢</span><span>Delivery quotes</span><span class="ep-nav-help" tabindex="0" data-tooltip="Verify a town parcel operator, collection point, fee and expected arrival before the customer pays." aria-label="Help for delivery quotes">?</span></a>{% endif %}
+        {% if user.role == 'STAFF' or user.role == 'BRANCH_MANAGER' %}<a class="ep-nav-link {% if request.resolver_match.url_name == 'pos_workspace' %}is-active{% endif %}" href="{% url 'core:pos_workspace' %}"><span class="ep-nav-icon">▣</span><span>POS &amp; shifts</span><span class="ep-nav-help" tabindex="0" data-tooltip="Complete walk-in sales and reconcile cashier shifts." aria-label="Help for POS and shifts">?</span></a>{% endif %}
+        {% if user.role == 'INVENTORY_MANAGER' or user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a class="ep-nav-link {% if request.resolver_match.namespace == 'inventory' %}is-active{% endif %}" href="{% url 'inventory:inventory-workspace' %}"><span class="ep-nav-icon">◇</span><span>Inventory &amp; transfers</span><span class="ep-nav-help" tabindex="0" data-tooltip="Receive stock, count it and move it between branches." aria-label="Help for inventory">?</span></a>{% endif %}
+        {% if user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a class="ep-nav-link {% if request.resolver_match.namespace == 'marketing' %}is-active{% endif %}" href="{% url 'marketing:operations-workspace' %}"><span class="ep-nav-icon">☆</span><span>Returns &amp; reviews</span><span class="ep-nav-help" tabindex="0" data-tooltip="Moderate verified reviews and decide customer returns." aria-label="Help for returns and reviews">?</span></a>{% endif %}
+
+        <p class="ep-nav-heading">Oversight</p>
+        {% if user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a class="ep-nav-link {% if request.resolver_match.namespace == 'report_workspace' %}is-active{% endif %}" href="{% url 'report_workspace:operations' %}"><span class="ep-nav-icon">▥</span><span>Reports</span></a>
+        <a class="ep-nav-link {% if request.resolver_match.namespace == 'notifications' %}is-active{% endif %}" href="{% url 'notifications:operations' %}"><span class="ep-nav-icon">○</span><span>Notifications</span></a>{% endif %}
+        {% if is_super_admin or user.role == 'SUPER_ADMIN' %}<a class="ep-nav-link" href="{% url 'accounts:staff-invite' %}"><span class="ep-nav-icon">+</span><span>Staff accounts</span></a><a class="ep-nav-link" href="{% url 'accounts:privacy-operations' %}"><span class="ep-nav-icon">◈</span><span>Privacy requests</span></a>{% endif %}
+      </nav>
+      <div class="ep-sidebar-footer">
+        {% if user.is_superuser %}<a class="ep-system-link" href="{% url 'admin:index' %}">Open system data <span aria-hidden="true">↗</span></a>{% endif %}
+        <a class="ep-store-link" href="{% url 'core:storefront_home' %}">View customer storefront</a>
+      </div>
+    </aside>
+    <div class="ep-sidebar-scrim" data-sidebar-close hidden></div>
+
+    <div class="ep-admin-stage">
+      <header class="ep-topbar">
+        <button class="ep-menu-button" type="button" data-sidebar-open aria-controls="management-sidebar" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">Open navigation</span></button>
+        <div class="ep-topbar-scope">{% block scope_control %}<span>{% if scope_label %}{{ scope_label }}{% elif user.branch %}{{ user.branch.name }}{% else %}Emporium Plug{% endif %}</span>{% endblock %}</div>
+        <div class="ep-topbar-actions"><a href="{% url 'core:faq' %}" class="ep-help-link" target="_blank">Help</a><div class="ep-user"><span class="ep-avatar">{{ user.first_name|default:user.username|slice:':1'|upper }}</span><span class="ep-user-name">{{ user.get_full_name|default:user.username }}</span></div><form method="post" action="{% url 'accounts:logout' %}">{% csrf_token %}<button class="ep-logout" type="submit">Log out</button></form></div>
+      </header>
+      <div class="ep-toast-area" aria-live="polite">{% for message in messages %}<div class="ep-toast ep-toast-{{ message.tags|default:'info' }}">{{ message }}</div>{% endfor %}</div>
+      <main id="management-main" class="ep-management-main">{% block content %}{% endblock %}</main>
+    </div>
+  </div>
+  <script src="{% static 'core/management.js' %}?v=20260729" defer></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

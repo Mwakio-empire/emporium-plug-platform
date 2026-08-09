@@ -16,6 +16,44 @@ logger = logging.getLogger(__name__)
 ABANDONED_ORDER_TIMEOUT_MINUTES = 30
 
 
+@shared_task(name='orders.expire_delivery_quotes')
+def expire_delivery_quotes():
+    """Expire published transport quotes without touching orders, stock or coupons."""
+    from orders.models import DeliveryQuoteRequest, DeliveryQuoteStatusHistory
+    from users.models import User
+    now = timezone.now()
+    candidate_ids = list(DeliveryQuoteRequest.objects.filter(
+        status=DeliveryQuoteRequest.Status.QUOTED,
+        expires_at__isnull=False,
+        expires_at__lte=now,
+        order__isnull=True,
+    ).values_list('pk', flat=True))
+    expired = 0
+    actor = User.get_system_account()
+    for quote_id in candidate_ids:
+        with transaction.atomic():
+            quote = DeliveryQuoteRequest.objects.select_for_update().filter(
+                pk=quote_id,
+                status=DeliveryQuoteRequest.Status.QUOTED,
+                expires_at__lte=now,
+                order__isnull=True,
+            ).first()
+            if quote is None:
+                continue
+            quote.status = DeliveryQuoteRequest.Status.EXPIRED
+            quote.save(update_fields=['status', 'updated_at'])
+            DeliveryQuoteStatusHistory.objects.create(
+                quote=quote,
+                old_status=DeliveryQuoteRequest.Status.QUOTED,
+                new_status=DeliveryQuoteRequest.Status.EXPIRED,
+                changed_by=actor,
+                note='Published quote expired after its 24-hour acceptance window.',
+            )
+            expired += 1
+    logger.info('Delivery quote expiry sweep complete | Expired=%s', expired)
+    return expired
+
+
 @shared_task(name='orders.cancel_abandoned_pending_orders')
 def cancel_abandoned_pending_orders():
     """

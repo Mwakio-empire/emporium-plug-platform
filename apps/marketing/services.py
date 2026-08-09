@@ -26,6 +26,21 @@ class PromotionService:
     """Concurrency-safe coupon redemption and promotional price resolution."""
 
     @staticmethod
+    def _validate_stacking_policy(*, coupon, pricing_sources):
+        sources = {str(source) for source in pricing_sources if source}
+        if OrderItem.PricingSource.WHOLESALE in sources:
+            raise ValidationError(
+                'A quantity price is already applied. Coupons cannot be combined with quantity pricing.'
+            )
+        if (
+            OrderItem.PricingSource.FLASH_SALE in sources
+            and not coupon.allow_discounted_items
+        ):
+            raise ValidationError(
+                'This coupon cannot be combined with products that are already discounted.'
+            )
+
+    @staticmethod
     def _customer_key(*, customer=None, phone=''):
         identity = f'user:{customer.pk}' if customer else f'phone:{str(phone or "").strip()}'
         return hmac.new(
@@ -35,7 +50,9 @@ class PromotionService:
     @classmethod
     @transaction.atomic
     def validate_and_apply_coupon_campaign(cls, order: Order, coupon_code: str) -> Order:
-        order = Order.objects.select_for_update().select_related('customer', 'branch').get(pk=order.pk)
+        order = Order.objects.select_for_update(of=('self',)).select_related(
+            'customer', 'branch',
+        ).get(pk=order.pk)
         existing = CouponRedemption.objects.select_related('coupon').filter(order=order).first()
         normalized_code = str(coupon_code or '').strip().upper()
         if existing:
@@ -49,6 +66,11 @@ class PromotionService:
             coupon = Coupon.objects.select_for_update().get(code=normalized_code)
         except Coupon.DoesNotExist:
             raise ValidationError('This coupon is inactive, expired, or invalid.') from None
+
+        cls._validate_stacking_policy(
+            coupon=coupon,
+            pricing_sources=order.items.values_list('pricing_source', flat=True),
+        )
 
         now = timezone.now()
         if (
@@ -94,13 +116,19 @@ class PromotionService:
         return order
 
     @classmethod
-    def validate_coupon_preview(cls, *, coupon_code, subtotal, branch, customer=None):
+    def validate_coupon_preview(
+        cls, *, coupon_code, subtotal, branch, customer=None, pricing_sources=(),
+    ):
         """Validate without consuming a redemption or mutating counters."""
         now = timezone.now()
         try:
             coupon = Coupon.objects.get(code=str(coupon_code or '').strip().upper())
         except Coupon.DoesNotExist:
             raise ValidationError('This coupon is inactive, expired, or invalid.') from None
+        cls._validate_stacking_policy(
+            coupon=coupon,
+            pricing_sources=pricing_sources,
+        )
         if (
             not coupon.is_active
             or not (coupon.active_from <= now <= coupon.active_to)
@@ -272,7 +300,7 @@ class ReturnProcessingService:
         decision_reason = str(decision_reason or '').strip()
         if len(decision_reason) < 5:
             raise ValidationError('Record a decision reason of at least five characters.')
-        request = ReturnRequest.objects.select_for_update().select_related(
+        request = ReturnRequest.objects.select_for_update(of=('self',)).select_related(
             'order__branch', 'order_item__variant__product', 'order_item__product',
         ).get(pk=return_request_id)
         if request.status != ReturnRequest.ReturnStatus.PENDING:

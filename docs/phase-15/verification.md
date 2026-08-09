@@ -1,5 +1,36 @@
 # Phase 15 verification record
 
+## Pre-production hardening update — 2026-08-09
+
+- Inventory transfer receipt locks source and destination balances in stable
+  branch-ID order to prevent opposite-direction PostgreSQL deadlocks.
+- SMS and transactional-email attempts use a durable delivery lease. Concurrent
+  tasks do not contact the provider twice; an expired lease with unknown provider
+  outcome enters manual follow-up instead of being blindly resent.
+- Production refuses to start with M-Pesa sandbox mode, disabled transactional
+  email, incomplete Daraja credentials or a disabled off-site backup job.
+- Checkout, tracking and authentication utility pages emit
+  `noindex,nofollow`; public catalogue and policy content remains crawlable.
+- `manage.py check`, migration drift and Python compilation passed. Migration
+  `notifications.0004` is applied locally.
+- Complete SQLite regression: **710 run, 709 passed, 1 expected SQLite
+  row-lock feature skip, 0 failed**.
+- Complete PostgreSQL regression: **710 passed, 0 skipped, 0 failed**. It exposed
+  and drove correction of nullable-outer-join row locks in restock alerts and
+  delivery-quote acceptance, plus a migration test that relied on flushed county
+  seed data. The focused modules and final global PostgreSQL run all pass.
+- In-app browser QA passed on the default desktop viewport and 390×844 mobile:
+  storefront rendering, product search, checkout privacy/layout and the sign-in
+  password visibility control. No browser console warnings/errors were recorded.
+- `pip-audit` and `npm audit --omit=dev` reported no known vulnerabilities;
+  Bandit reported no high-severity findings. Python dependencies remain exactly
+  version-pinned but are not yet hash-locked.
+- Production-style `check --deploy` passes with only the deliberately deferred
+  HSTS include-subdomains/preload warnings; those controls remain off until every
+  real subdomain is verified as HTTPS-only.
+- The exact release revision still requires PostgreSQL, rendered browser,
+  provider, recovery, load, external security and client-UAT evidence.
+
 Date: 2026-07-26
 
 ## Documentation checks
@@ -9,7 +40,7 @@ Date: 2026-07-26
 - Phase 15 files contain no known mojibake markers, placeholder claims or embedded credentials.
 - Guides reference implemented routes/workflows and distinguish local verification from external certification.
 - Known limitations, deferred features, client decisions and release gates are explicit.
-- Current API, release, UAT, changelog and traceability documents agree that public launch checkout creates S18-pickup orders only; town parcels use the non-order-creating WhatsApp handoff.
+- This dated 26 July statement has been superseded by the 1 August update below: S18 pickup remains default, while town parcels now use a non-order quote request with WhatsApp as delayed-response/support fallback.
 - Older delivery-selector records are retained as dated historical evidence and explicitly point readers to the superseding launch policy.
 - All 48 concrete paths sampled from the API reference resolve through Django's active URL configuration.
 
@@ -30,6 +61,18 @@ Date: 2026-07-26
 | Full automated suite | 519 run: 518 passed, 1 expected SQLite skip for PostgreSQL row locking |
 
 Expected external gates are recorded in the release checklist; they are not silently converted into local passes.
+
+## Delivery quote and controlled-stacking update — 2026-08-01
+
+- S18 pickup remains selected by default. “Send to my town” creates a protected quote request without creating an order, initiating payment, reserving stock or redeeming a coupon.
+- Quote timing implements Monday-Saturday 8:00 AM-6:00 PM Africa/Nairobi, a 30-working-minute response target, configured closure dates and a 24-hour acceptance window.
+- Commercial quote publication is branch-scoped and restricted at both the view and service layers to branch managers/super admins. The workspace uses the unified Operations navigation.
+- Acceptance rehydrates server-owned product identities, rechecks current stock/pricing/coupon rules, requires the current total to be explicitly reconfirmed, and creates one prepaid M-Pesa parcel order/reservation under row locks.
+- Coupon rules are controlled: one coupon; quantity pricing never stacks; discounted/flash items reject coupons unless the coupon explicitly permits them; savings and transport fee are displayed separately.
+- Focused checkout/marketing/logistics/notification suite: **151 passed**.
+- Final complete suite: **654 passed, 1 expected `select_for_update` feature skip, 0 failed**.
+- `manage.py check`, migration drift, Python compilation and both checkout JavaScript syntax checks passed. Migrations `marketing.0004`, `orders.0014` and `orders.0015` are applied locally.
+- Local HTTP smoke checks returned 200 for the storefront, checkout and delivery-quote JavaScript asset. The in-app browser policy blocked automated control of the localhost page, so final desktop/mobile rendered UAT remains an explicit manual gate rather than a claimed pass.
 
 ## Item 10 update — 2026-07-28
 

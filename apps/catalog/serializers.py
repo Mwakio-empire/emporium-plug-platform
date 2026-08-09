@@ -2,7 +2,9 @@
 
 from rest_framework import serializers
 from django.db.models import Sum
-from .models import Category, Product, ProductImage, ProductVariant
+from .models import (
+    Category, Product, ProductImage, ProductOption, ProductOptionValue, ProductVariant,
+)
 from inventory.models import Stock
 
 
@@ -51,6 +53,20 @@ class CategoryTreeSerializer(serializers.ModelSerializer):
         ).data
 
 
+class ProductOptionValueSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductOptionValue
+        fields = ['id', 'value', 'colour_hex', 'position']
+
+
+class ProductOptionSerializer(serializers.ModelSerializer):
+    values = ProductOptionValueSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = ProductOption
+        fields = ['id', 'name', 'display_type', 'position', 'values']
+
+
 class ProductVariantSerializer(serializers.ModelSerializer):
     """
     Variant detail with stock via database aggregation.
@@ -61,11 +77,17 @@ class ProductVariantSerializer(serializers.ModelSerializer):
     )
     total_stock = serializers.SerializerMethodField()
     in_stock = serializers.SerializerMethodField()
+    option_value_ids = serializers.PrimaryKeyRelatedField(
+        source='option_values', many=True, read_only=True,
+    )
+    option_summary = serializers.CharField(read_only=True)
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = ProductVariant
         fields = [
-            'id', 'attribute_name', 'attribute_value',
+            'id', 'sku', 'attribute_name', 'attribute_value',
+            'option_value_ids', 'option_summary', 'image_url', 'is_active',
             'price_override', 'effective_price',
             'total_stock', 'in_stock',
         ]
@@ -78,6 +100,9 @@ class ProductVariantSerializer(serializers.ModelSerializer):
 
     def get_in_stock(self, obj):
         return self.get_total_stock(obj) > 0
+
+    def get_image_url(self, obj):
+        return obj.image.url if obj.image else None
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -131,19 +156,20 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     Includes all variants and stock status.
     """
     category = CategorySerializer(read_only=True)
-    variants = ProductVariantSerializer(many=True, read_only=True)
+    variants = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
     in_stock = serializers.SerializerMethodField()
     on_sale = serializers.SerializerMethodField()
     total_stock = serializers.SerializerMethodField()
     gallery = ProductImageSerializer(source='gallery_images', many=True, read_only=True)
+    options = ProductOptionSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
         fields = [
             'id', 'name', 'slug', 'description', 'sku',
             'category', 'price', 'compare_at_price', 'on_sale',
-            'image_url', 'variants',
+            'image_url', 'variants', 'options',
             'in_stock', 'total_stock', 'status',
             'customer_return_policy',
             'weight', 'dimensions', 'specifications', 'meta_description', 'gallery',
@@ -151,6 +177,13 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
     def get_image_url(self, obj):
         return obj.image.url if obj.image else None
+
+    def get_variants(self, obj):
+        return ProductVariantSerializer(
+            obj.variants.filter(is_active=True),
+            many=True,
+            context=self.context,
+        ).data
 
     def get_total_stock(self, obj):
         request = self.context.get('request')

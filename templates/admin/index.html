@@ -1,0 +1,20 @@
+{% extends 'admin/base_site.html' %}
+{% load i18n static %}
+{% block bodyclass %}{{ block.super }} dashboard ep-system-dashboard{% endblock %}
+{% block content %}
+<div class="ep-system-intro"><div><h1>System data</h1><p>Use this area for controlled records, configuration and investigation. Complete sales, stock movements, order transitions, returns and payment decisions in the Operations workspaces.</p></div><a href="{% url 'core:analytics_dashboard' %}">Back to operations</a></div>
+<div class="ep-system-help" role="note"><strong>Not sure where to work?</strong> Start in Operations overview. Model pages marked as read-only are evidence views and cannot bypass audited workflows.</div>
+<div class="ep-admin-apps">
+{% for app in app_list %}
+  <section class="ep-admin-app module">
+    <div class="ep-admin-app-heading"><h2>{{ app.name }}</h2><span class="ep-admin-question" tabindex="0" title="Open a model to search, filter or maintain the records permitted for your account." aria-label="Help for {{ app.name }}">?</span></div>
+    <div class="ep-admin-models">
+    {% for model in app.models %}
+      <div class="ep-admin-model-row"><div><strong>{% if model.admin_url %}<a href="{{ model.admin_url }}">{{ model.name }}</a>{% else %}{{ model.name }}{% endif %}</strong>{% if model.view_only %}<small>Read-only</small>{% endif %}</div><div class="ep-admin-model-actions">{% if model.add_url %}<a href="{{ model.add_url }}">Add</a>{% endif %}{% if model.admin_url %}<a href="{{ model.admin_url }}">Open</a>{% endif %}</div></div>
+    {% endfor %}
+    </div>
+  </section>
+{% empty %}<p>You do not have permission to view system records.</p>{% endfor %}
+</div>
+{% endblock %}
+{% block sidebar %}{% endblock %}

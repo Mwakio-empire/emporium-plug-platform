@@ -78,6 +78,24 @@ class PaymentSettlementService:
             ])
             return 'reconciliation_required'
 
+        if order.status == Order.Status.CANCELLED:
+            payment.amount = received_amount
+            payment.mpesa_receipt_number = receipt_number
+            payment.phone_number = (
+                str(phone_number) if phone_number is not None else payment.phone_number
+            )
+            payment.raw_callback_payload = raw_callback_payload
+            payment.failure_reason = (
+                'Valid payment evidence arrived after the order was cancelled. '
+                'Do not fulfil automatically; staff must reconcile and contact the customer.'
+            )
+            payment.status = MpesaTransaction.Status.RECONCILIATION_REQUIRED
+            payment.save(update_fields=[
+                'amount', 'mpesa_receipt_number', 'phone_number',
+                'raw_callback_payload', 'failure_reason', 'status', 'updated_at',
+            ])
+            return 'reconciliation_required'
+
         payment.amount = received_amount
         payment.mpesa_receipt_number = receipt_number
         payment.phone_number = (

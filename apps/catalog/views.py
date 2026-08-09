@@ -87,6 +87,7 @@ class ProductDetailView(generics.RetrieveAPIView):
         return public_products(
             branch_id=_requested_branch_id(self.request),
         ).prefetch_related(
-            'variants',
+            'variants__option_values',
+            'options__values',
             'gallery_images',
         )

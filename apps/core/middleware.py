@@ -1,4 +1,27 @@
+from urllib.parse import urlencode
+
+from django.shortcuts import redirect
+from django.http import HttpResponseForbidden
+from django.urls import reverse
 from django.utils.cache import patch_cache_control
+
+
+class AdminStaffLoginMiddleware:
+    """Route Django-admin authentication through the mandatory staff 2FA flow."""
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        if request.path.startswith('/admin/'):
+            if not request.user.is_authenticated:
+                login_url = reverse('accounts:login')
+                return redirect(f'{login_url}?{urlencode({"next": request.get_full_path()})}')
+            if not request.user.is_active or not request.user.is_staff:
+                return HttpResponseForbidden('System data is restricted to authorized administrators.')
+            if request.path.startswith('/admin/login/'):
+                return redirect('admin:index')
+        return self.get_response(request)
 
 
 class SecurityResponseHeadersMiddleware:

@@ -1,0 +1,6 @@
+{% extends 'admin/base.html' %}
+{% load static %}
+{% block title %}{{ title }} | Emporium Plug system data{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="icon" href="{% static 'branding/favicon.png' %}" type="image/png"><link rel="stylesheet" href="{% static 'core/admin-system.css' %}?v=20260729">{% endblock %}
+{% block branding %}<div class="ep-admin-brand"><a href="{% url 'core:analytics_dashboard' %}">Emporium<span>Plug</span></a><small>System data</small></div>{% endblock %}
+{% block nav-global %}<div class="ep-admin-global"><a href="{% url 'core:analytics_dashboard' %}">Operations overview</a><a href="{% url 'core:storefront_home' %}">Storefront</a></div>{% endblock %}

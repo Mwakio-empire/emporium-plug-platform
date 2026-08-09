@@ -42,6 +42,10 @@ app.conf.beat_schedule = {
         'task': 'inventory.send_branch_low_stock_alerts',
         'schedule': crontab(minute=0),
     },
+    'send-customer-restock-alerts-every-five-minutes': {
+        'task': 'catalog.send_customer_restock_alerts',
+        'schedule': crontab(minute='*/5'),
+    },
     'send-pickup-reminders-every-hour': {
         'task': 'orders.send_pickup_reminders',
         'schedule': crontab(minute=15),
@@ -53,6 +57,10 @@ app.conf.beat_schedule = {
     'cancel-abandoned-pending-orders-every-five-minutes': {
         'task': 'orders.cancel_abandoned_pending_orders',
         'schedule': crontab(minute='*/5'),
+    },
+    'expire-delivery-quotes-every-ten-minutes': {
+        'task': 'orders.expire_delivery_quotes',
+        'schedule': crontab(minute='*/10'),
     },
     'purge-unverified-accounts-daily': {
         'task': 'users.purge_unverified_accounts',

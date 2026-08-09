@@ -10,14 +10,16 @@ from django.db.models import Q
 from django.utils import timezone
 from django.views.generic import TemplateView
 from branches.models import Branch
-from logistics.models import PickupSlot
+from logistics.models import KenyaCounty, PickupSlot
 from core.context_processors import build_whatsapp_url
+from core.location_preferences import human_location_label
 from .document_services import CommercialDocumentGenerator
 from .models import Order
 from .cart_services import UnifiedSessionCartService
 from users.permissions import has_role, is_rider
 
 User = get_user_model()
+
 
 @login_required
 def download_invoice_pdf_view(request, order_id):
@@ -79,6 +81,10 @@ class CheckoutPageView(UserPassesTestMixin, TemplateView):
             is_active=True,
         ).first()
         cart_items = cart.get_cart_items_extended()
+        cart_total = cart.get_total_financial_cost()
+        cart_regular_total = sum(
+            item['regular_price'] * item['quantity'] for item in cart_items
+        )
         pickup_slots = list(
             PickupSlot.objects.filter(
                 is_active=True,
@@ -108,7 +114,9 @@ class CheckoutPageView(UserPassesTestMixin, TemplateView):
         ])
         context.update({
             'cart_items': cart_items,
-            'cart_total': cart.get_total_financial_cost(),
+            'cart_total': cart_total,
+            'cart_regular_total': cart_regular_total,
+            'cart_product_discount': max(0, cart_regular_total - cart_total),
             'cart_branch_id': cart.cart_branch_id,
             'pickup_available': bool(
                 cart_branch and cart_branch.offers_customer_pickup and pickup_slots
@@ -128,6 +136,15 @@ class CheckoutPageView(UserPassesTestMixin, TemplateView):
                 self.request.user.email
                 if self.request.user.is_authenticated else ''
             ),
+            'delivery_counties': [
+                {
+                    'code': county['code'],
+                    'name': human_location_label(county['name']),
+                }
+                for county in KenyaCounty.objects.filter(is_active=True)
+                .order_by('name', 'code')
+                .values('code', 'name')
+            ],
         })
         return context
 
@@ -140,4 +157,15 @@ class OrderTrackingPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['order_number'] = self.kwargs['order_number']
+        return context
+
+
+class DeliveryQuotePageView(TemplateView):
+    """Public shell; protected quote data is loaded through the owner-only API."""
+
+    template_name = 'orders/delivery_quote_status.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['quote_reference'] = self.kwargs['reference']
         return context

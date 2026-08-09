@@ -3,6 +3,7 @@
 .env.local
 .env.*.local
 .env.production
+.env.docker.local
 
 # Virtual Environment
 venv/
@@ -83,6 +84,9 @@ Thumbs.db
 # Celery
 celerybeat-schedule
 dump.rdb
+
+# Local database exports and restore rehearsals
+backups/local/
 
 # Environment-specific files
 *.pem

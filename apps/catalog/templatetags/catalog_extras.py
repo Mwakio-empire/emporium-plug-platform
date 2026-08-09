@@ -9,6 +9,27 @@ register = template.Library()
 
 
 @register.filter
+def storefront_image_url(image, width=640):
+    """Return a right-sized Cloudinary URL while leaving other storage URLs intact."""
+    if not image:
+        return ''
+    try:
+        url = image.url
+    except (AttributeError, ValueError):
+        return ''
+    try:
+        width = max(96, min(int(width), 1600))
+    except (TypeError, ValueError):
+        width = 640
+    marker = '/image/upload/'
+    if 'res.cloudinary.com/' not in url or marker not in url:
+        return url
+    url = url.replace('http://res.cloudinary.com/', 'https://res.cloudinary.com/', 1)
+    transform = f'f_auto,q_auto,c_fill,g_auto,w_{width},h_{width}/'
+    return url.replace(marker, f'{marker}{transform}', 1)
+
+
+@register.filter
 def json_ld(value):
     """Serialize JSON-LD while preventing a value from closing the script element."""
     encoded = json.dumps(value, cls=DjangoJSONEncoder, separators=(',', ':'))

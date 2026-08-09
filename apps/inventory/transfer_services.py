@@ -69,7 +69,7 @@ class TransferService:
     @staticmethod
     @transaction.atomic
     def approve_transfer(*, transfer_id, approving_manager):
-        transfer = TransferRequest.objects.select_for_update().select_related(
+        transfer = TransferRequest.objects.select_for_update(of=('self',)).select_related(
             'from_branch', 'to_branch', 'product', 'variant',
         ).get(pk=transfer_id)
         if transfer.status != TransferRequest.Status.REQUESTED:
@@ -88,7 +88,7 @@ class TransferService:
     @staticmethod
     @transaction.atomic
     def dispatch_transfer(*, transfer_id, dispatching_manager):
-        transfer = TransferRequest.objects.select_for_update().select_related(
+        transfer = TransferRequest.objects.select_for_update(of=('self',)).select_related(
             'product', 'variant', 'from_branch', 'to_branch',
         ).get(pk=transfer_id)
         if transfer.status != TransferRequest.Status.APPROVED:
@@ -119,7 +119,7 @@ class TransferService:
     @staticmethod
     @transaction.atomic
     def receive_transfer(*, transfer_id, receiving_manager, quantity, note=''):
-        transfer = TransferRequest.objects.select_for_update().select_related(
+        transfer = TransferRequest.objects.select_for_update(of=('self',)).select_related(
             'product', 'variant', 'from_branch', 'to_branch',
         ).get(pk=transfer_id)
         if transfer.status not in {

@@ -11,8 +11,10 @@
 import logging
 from copy import deepcopy
 from decimal import Decimal
-from django.db.models import Sum
+from django.db.models import Prefetch, Sum
 from catalog.models import ProductVariant, Product
+from catalog.models import QuantityPriceTier
+from catalog.pricing import QuantityPricingService
 from catalog.constants import STOREFRONT_SELECTED_BRANCH_KEY
 
 
@@ -113,7 +115,7 @@ class UnifiedPOSCartService:
                 'type': 'variant',
                 'quantity': 0,
                 'price': str(variant.effective_price),
-                'name': f"{variant.product.name} - {variant.attribute_name}: {variant.attribute_value}",
+                'name': f"{variant.product.name} - {variant.option_summary}",
             }
 
         if override_quantity:
@@ -140,14 +142,34 @@ class UnifiedPOSCartService:
         product_ids = [key[2:] for key in self.cart if key.startswith('p:')]
         variants = ProductVariant.objects.select_related(
             'product', 'product__category'
-        ).filter(id__in=variant_ids)
-        products = Product.objects.select_related('category').filter(id__in=product_ids)
+        ).prefetch_related('product__quantity_price_tiers').filter(id__in=variant_ids)
+        products = Product.objects.select_related('category').prefetch_related(
+            'quantity_price_tiers',
+        ).filter(id__in=product_ids)
+
+        variants = list(variants)
+        products = list(products)
+        product_quantities = {}
+        for variant in variants:
+            quantity = self.cart[str(variant.id)]['quantity']
+            product_quantities[variant.product_id] = (
+                product_quantities.get(variant.product_id, 0) + quantity
+            )
+        for product in products:
+            quantity = self.cart[f'p:{product.pk}']['quantity']
+            product_quantities[product.pk] = product_quantities.get(product.pk, 0) + quantity
 
         items = []
         for variant in variants:
             entry = self.cart[str(variant.id)]
             quantity = entry['quantity']
-            price = variant.effective_price
+            quote = QuantityPricingService.quote(
+                product=variant.product,
+                regular_unit_price=variant.effective_price,
+                current_unit_price=variant.effective_price,
+                product_quantity=product_quantities[variant.product_id],
+            )
+            price = quote.unit_price
             stock = variant.stocks.filter(branch=self.branch).first()
             items.append({
                 'variant': variant,
@@ -157,12 +179,21 @@ class UnifiedPOSCartService:
                 'total_price': price * quantity,
                 'name': entry.get('name', str(variant)),
                 'available_quantity': stock.available_quantity if stock else 0,
+                'wholesale_applied': quote.wholesale_applied,
+                'quantity_discount_percentage': quote.discount_percentage,
+                'quantity_tier_minimum': quote.tier_minimum,
             })
         for product in products:
             key = f'p:{product.pk}'
             entry = self.cart[key]
             quantity = entry['quantity']
-            price = product.price
+            quote = QuantityPricingService.quote(
+                product=product,
+                regular_unit_price=product.price,
+                current_unit_price=product.price,
+                product_quantity=product_quantities[product.pk],
+            )
+            price = quote.unit_price
             stock = product.stocks.filter(branch=self.branch).first()
             items.append({
                 'variant': None,
@@ -172,6 +203,9 @@ class UnifiedPOSCartService:
                 'total_price': price * quantity,
                 'name': entry.get('name', product.name),
                 'available_quantity': stock.available_quantity if stock else 0,
+                'wholesale_applied': quote.wholesale_applied,
+                'quantity_discount_percentage': quote.discount_percentage,
+                'quantity_tier_minimum': quote.tier_minimum,
             })
         return items
 
@@ -374,7 +408,7 @@ class UnifiedSessionCartService:
                 'success': False,
                 'error': (
                     'These items are not currently available together from one shop. Remove an item or contact us for help.'
-                    if any_stock else f"'{variant.product.name} - {variant.attribute_value}' is out of stock."
+                    if any_stock else f"'{variant.product.name} - {variant.option_summary}' is out of stock."
                 ),
             }
         total_stock = self._available_for_entry(branch_id, proposed_entry)
@@ -388,7 +422,7 @@ class UnifiedSessionCartService:
                 'quantity': 0,
                 'price': str(_resolve_display_price(variant)),
                 'name': variant.product.name,
-                'variant_name': f"{variant.attribute_name}: {variant.attribute_value}",
+                'variant_name': variant.option_summary,
                 'sku': '',  # ProductVariant has no sku field -- see prior note
             }
             
@@ -535,16 +569,36 @@ class UnifiedSessionCartService:
         product_entries = {k: v for k, v in self.cart.items() if v['type'] == 'product'}
 
         variant_ids = [v['variant_id'] for v in variant_entries.values()]
+        active_tiers = QuantityPriceTier.objects.filter(is_active=True).order_by('minimum_quantity')
         variants_qs = ProductVariant.objects.select_related(
             'product', 'product__category'
+        ).prefetch_related(
+            Prefetch('product__quantity_price_tiers', queryset=active_tiers),
         ).filter(id__in=variant_ids)
         variants_map = {str(v.id): v for v in variants_qs}
 
         product_ids = [v['product_id'] for v in product_entries.values()]
-        products_qs = Product.objects.select_related('category').filter(id__in=product_ids)
+        products_qs = Product.objects.select_related('category').prefetch_related(
+            Prefetch('quantity_price_tiers', queryset=active_tiers),
+        ).filter(id__in=product_ids)
         products_map = {str(p.id): p for p in products_qs}
 
+        product_quantities = {}
+        for entry in variant_entries.values():
+            variant = variants_map.get(entry['variant_id'])
+            if variant:
+                product_quantities[variant.product_id] = (
+                    product_quantities.get(variant.product_id, 0) + entry['quantity']
+                )
+        for entry in product_entries.values():
+            product = products_map.get(entry['product_id'])
+            if product:
+                product_quantities[product.pk] = (
+                    product_quantities.get(product.pk, 0) + entry['quantity']
+                )
+
         items = []
+        noticed_products = set()
 
         for key, entry in variant_entries.items():
             variant = variants_map.get(entry['variant_id'])
@@ -558,7 +612,13 @@ class UnifiedSessionCartService:
                 self.remove_item(key)
                 continue
             quantity = entry['quantity']
-            price = Decimal(entry['price'])
+            quote = QuantityPricingService.quote(
+                product=variant.product,
+                regular_unit_price=variant.effective_price,
+                current_unit_price=_resolve_display_price(variant),
+                product_quantity=product_quantities[variant.product_id],
+            )
+            price = quote.unit_price
             items.append({
                 'key': key,
                 'type': 'variant',
@@ -569,7 +629,26 @@ class UnifiedSessionCartService:
                 'total_price': price * quantity,
                 'variant': variant,
                 'product': variant.product,
+                'stored_price': Decimal(entry['price']),
+                'regular_price': quote.regular_unit_price,
+                'pricing_source': quote.source,
+                'wholesale_applied': quote.wholesale_applied,
+                'quantity_tier_minimum': quote.tier_minimum,
+                'quantity_discount_percentage': quote.discount_percentage,
+                'product_quantity': product_quantities[variant.product_id],
+                'minimum_order_quantity': variant.product.minimum_order_quantity,
+                'minimum_order_shortfall': max(
+                    0,
+                    variant.product.minimum_order_quantity - product_quantities[variant.product_id],
+                ),
+                'next_tier_minimum': quote.next_tier_minimum,
+                'next_tier_shortfall': (
+                    quote.next_tier_minimum - product_quantities[variant.product_id]
+                    if quote.next_tier_minimum else 0
+                ),
+                'show_product_pricing_notice': variant.product_id not in noticed_products,
             })
+            noticed_products.add(variant.product_id)
 
         for key, entry in product_entries.items():
             product = products_map.get(entry['product_id'])
@@ -582,7 +661,13 @@ class UnifiedSessionCartService:
                 self.remove_item(key)
                 continue
             quantity = entry['quantity']
-            price = Decimal(entry['price'])
+            quote = QuantityPricingService.quote(
+                product=product,
+                regular_unit_price=product.price,
+                current_unit_price=product.price,
+                product_quantity=product_quantities[product.pk],
+            )
+            price = quote.unit_price
             items.append({
                 'key': key,
                 'type': 'product',
@@ -593,12 +678,30 @@ class UnifiedSessionCartService:
                 'total_price': price * quantity,
                 'variant': None,
                 'product': product,
+                'stored_price': Decimal(entry['price']),
+                'regular_price': quote.regular_unit_price,
+                'pricing_source': quote.source,
+                'wholesale_applied': quote.wholesale_applied,
+                'quantity_tier_minimum': quote.tier_minimum,
+                'quantity_discount_percentage': quote.discount_percentage,
+                'product_quantity': product_quantities[product.pk],
+                'minimum_order_quantity': product.minimum_order_quantity,
+                'minimum_order_shortfall': max(
+                    0, product.minimum_order_quantity - product_quantities[product.pk],
+                ),
+                'next_tier_minimum': quote.next_tier_minimum,
+                'next_tier_shortfall': (
+                    quote.next_tier_minimum - product_quantities[product.pk]
+                    if quote.next_tier_minimum else 0
+                ),
+                'show_product_pricing_notice': product.pk not in noticed_products,
             })
+            noticed_products.add(product.pk)
 
         return items
 
     def get_total_financial_cost(self):
-        return sum(Decimal(item['price']) * item['quantity'] for item in self.cart.values())
+        return sum(item['total_price'] for item in self.get_cart_items_extended())
 
     def get_total_item_count(self):
         return sum(item['quantity'] for item in self.cart.values())
@@ -616,6 +719,7 @@ class UnifiedSessionCartService:
             """
             from inventory.models import Stock
             issues = []
+            minimum_order_issues = []
             price_changes = []
             items = self.get_cart_items_extended()
             for item in items:
@@ -624,14 +728,14 @@ class UnifiedSessionCartService:
                     if branch is not None:
                         stock_rows = stock_rows.filter(branch=branch)
                     available = _available_total(stock_rows)
-                    live_price = _resolve_display_price(item['variant'])
-                    if live_price != item['price']:
+                    live_price = item['price']
+                    if live_price != item['stored_price']:
                         self.cart[item['key']]['price'] = str(live_price)
                         self._save()
                         price_changes.append({
                             'key': item['key'],
                             'name': item['name'],
-                            'old_price': str(item['price']),
+                            'old_price': str(item['stored_price']),
                             'new_price': str(live_price),
                         })
                 else:
@@ -639,14 +743,14 @@ class UnifiedSessionCartService:
                     if branch is not None:
                         stock_rows = stock_rows.filter(branch=branch)
                     available = _available_total(stock_rows)
-                    live_price = item['product'].price
-                    if live_price != item['price']:
+                    live_price = item['price']
+                    if live_price != item['stored_price']:
                         self.cart[item['key']]['price'] = str(live_price)
                         self._save()
                         price_changes.append({
                             'key': item['key'],
                             'name': item['name'],
-                            'old_price': str(item['price']),
+                            'old_price': str(item['stored_price']),
                             'new_price': str(live_price),
                         })
                 if item['quantity'] > available:
@@ -656,7 +760,20 @@ class UnifiedSessionCartService:
                         'requested': item['quantity'],
                         'available': available,
                     })
-            return {'valid': len(issues) == 0, 'issues': issues, 'price_changes': price_changes}
+                if item['show_product_pricing_notice'] and item['minimum_order_shortfall']:
+                    minimum_order_issues.append({
+                        'product_id': item['product'].pk,
+                        'name': item['product'].name,
+                        'required': item['minimum_order_quantity'],
+                        'in_cart': item['product_quantity'],
+                        'shortfall': item['minimum_order_shortfall'],
+                    })
+            return {
+                'valid': len(issues) == 0 and len(minimum_order_issues) == 0,
+                'issues': issues,
+                'minimum_order_issues': minimum_order_issues,
+                'price_changes': price_changes,
+            }
         
     def _persist_cart(self, branch_id=None, data=None):
         if not self._is_authenticated_customer():

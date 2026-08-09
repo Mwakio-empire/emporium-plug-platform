@@ -1,0 +1,59 @@
+:root {
+  --primary: #071d3b;
+  --secondary: #1265cf;
+  --accent: #ff7a00;
+  --header-bg: #071d3b;
+  --header-color: #fff;
+  --breadcrumbs-bg: #0b2d59;
+  --breadcrumbs-link-fg: #fff;
+  --link-fg: #1265cf;
+  --link-hover-color: #0b4fa7;
+  --body-bg: #f5f7fa;
+  --hairline-color: #dce3ec;
+  --border-color: #dce3ec;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+#header { min-height: 4.25rem; padding: 0 1.5rem; }
+.ep-admin-brand { display: flex; align-items: baseline; gap: .8rem; }
+.ep-admin-brand a { color: #fff; text-decoration: none; font-size: 1.25rem; font-weight: 850; }
+.ep-admin-brand a span { color: var(--accent); }
+.ep-admin-brand small { color: #b7c6d9; font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; }
+.ep-admin-global { display: flex; gap: .7rem; }
+.ep-admin-global a { padding: .55rem .75rem; border: 1px solid rgba(255,255,255,.24); border-radius: .45rem; color: #fff; text-decoration: none; font-size: .75rem; font-weight: 700; }
+.ep-admin-global a:hover { border-color: var(--accent); background: rgba(255,122,0,.12); }
+#content { padding: 1.5rem 2rem; }
+.ep-system-dashboard #content { width: auto; max-width: 80rem; }
+.ep-system-dashboard #content-main { float: none; width: 100%; }
+.ep-system-intro { display: flex; justify-content: space-between; gap: 1.5rem; align-items: flex-start; margin-bottom: 1rem; }
+.ep-system-intro h1 { margin: 0; color: #101827; font-size: 1.8rem; }
+.ep-system-intro p { max-width: 52rem; margin: .5rem 0 0; color: #607086; line-height: 1.55; }
+.ep-system-intro > a { white-space: nowrap; padding: .7rem .9rem; border: 1px solid #dce3ec; border-radius: .5rem; background: #fff; text-decoration: none; font-weight: 700; }
+.ep-system-help { margin-bottom: 1rem; padding: .85rem 1rem; border-left: 4px solid var(--accent); border-radius: .4rem; background: #fff8ef; color: #633111; }
+.ep-admin-apps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.ep-admin-app { margin: 0 !important; border: 1px solid #dce3ec !important; border-radius: .65rem; overflow: hidden; background: #fff; box-shadow: 0 8px 22px rgba(12,31,57,.05); }
+.ep-admin-app-heading { display: flex; align-items: center; justify-content: space-between; padding: .85rem 1rem; background: #fff; border-bottom: 1px solid #dce3ec; }
+.ep-system-dashboard .ep-admin-app-heading h2 { margin: 0; padding: 0; background: transparent; color: #101827; font-size: .95rem; }
+.ep-admin-question { display: grid; width: 1.15rem; height: 1.15rem; place-items: center; border: 1px solid #607086; border-radius: 50%; color: #607086; font-size: .68rem; font-weight: 800; cursor: help; }
+.ep-admin-model-row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .75rem 1rem; border-bottom: 1px solid #edf0f4; }
+.ep-admin-model-row:last-child { border-bottom: 0; }
+.ep-admin-model-row strong a, .ep-admin-model-actions a { text-decoration: none; }
+.ep-admin-model-row small { display: block; margin-top: .15rem; color: #718096; }
+.ep-admin-model-actions { display: flex; gap: .65rem; font-size: .72rem; font-weight: 700; }
+body:not(.ep-system-dashboard) .module h2, .module caption, .inline-group h2 { background: var(--primary); }
+.submit-row input.default { background: var(--secondary); }
+.help { color: #607086 !important; line-height: 1.5; }
+.help::before { content: '?'; display: inline-grid; place-items: center; width: 1rem; height: 1rem; margin-right: .35rem; border: 1px solid currentColor; border-radius: 50%; font-size: .65rem; font-weight: 800; }
+
+@media (max-width: 800px) {
+  #header { height: auto; padding: .8rem 1rem; align-items: flex-start; }
+  .ep-admin-global { flex-wrap: wrap; }
+  .ep-admin-global a { padding: .4rem .55rem; }
+  .ep-admin-brand small { display: none; }
+  #content { padding: 1rem; }
+  .ep-system-intro { display: block; }
+  .ep-system-intro > a { display: inline-block; margin-top: 1rem; }
+  .ep-admin-apps { grid-template-columns: 1fr; }
+  .ep-admin-model-row { align-items: flex-start; }
+  .ep-admin-model-actions { flex-direction: column; }
+}

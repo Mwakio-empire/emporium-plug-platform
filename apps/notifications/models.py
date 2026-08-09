@@ -14,6 +14,7 @@ class Notification(models.Model):
 
     class Status(models.TextChoices):
         QUEUED = 'QUEUED', 'Queued'
+        SENDING = 'SENDING', 'Sending'
         RETRY_PENDING = 'RETRY_PENDING', 'Retry Pending'
         SENT = 'SENT', 'Sent'
         SUPPRESSED = 'SUPPRESSED', 'Suppressed by Safe Provider'
@@ -48,6 +49,8 @@ class Notification(models.Model):
     provider_message_id = models.CharField(max_length=120, blank=True, default='')
     provider_status = models.CharField(max_length=80, blank=True, default='')
     last_error_code = models.CharField(max_length=80, blank=True, default='')
+    delivery_lease_token = models.CharField(max_length=64, blank=True, default='')
+    delivery_lease_expires_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     updated_at = models.DateTimeField(auto_now=True)
     sent_at = models.DateTimeField(null=True, blank=True)

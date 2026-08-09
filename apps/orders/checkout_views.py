@@ -1,4 +1,6 @@
+import hashlib
 import logging
+from datetime import timedelta
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.core.validators import validate_email
@@ -8,6 +10,7 @@ from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.permissions import AllowAny
+from rest_framework.throttling import ScopedRateThrottle, SimpleRateThrottle
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from users.models import User
@@ -28,9 +31,72 @@ from .checkout_access import (
     resolve_guest_order_token,
 )
 from .cart_services import UnifiedSessionCartService
+from .cancellation_services import CustomerOrderCancellationService
 from marketing.services import PromotionService
 
 logger = logging.getLogger(__name__)
+
+PAYMENT_RESERVATION_MINUTES = 30
+
+
+def _customer_status_note(order, status_value):
+    """Return approved customer copy; never expose operational history notes."""
+    if (
+        status_value == Order.Status.CANCELLED
+        and (order.void_reason or '').startswith(
+            CustomerOrderCancellationService.REASON_PREFIX,
+        )
+    ):
+        return 'You cancelled this order and its reserved items were released.'
+    messages = {
+        Order.Status.PENDING: (
+            'Your order was placed. Complete the M-Pesa prompt to confirm payment.'
+            if order.payment_method == Order.PaymentMethod.MPESA_STK
+            else 'Your order was placed.'
+        ),
+        Order.Status.PAYMENT_CONFIRMED: 'Your payment was confirmed.',
+        Order.Status.PROCESSING: (
+            'Your pickup order was received. Pay when collecting at S18.'
+            if order.payment_method == Order.PaymentMethod.COD
+            else 'Your order was received and is being prepared.'
+        ),
+        Order.Status.PACKING: 'Your items are being packed.',
+        Order.Status.PACKED: 'Your order has been packed.',
+        Order.Status.READY_FOR_PICKUP: 'Your order is ready for collection at S18.',
+        Order.Status.CANCELLED: 'Payment was not completed, so this order was cancelled.',
+        Order.Status.COLLECTED: 'Your order was collected.',
+        Order.Status.CUSTOMER_CONFIRMED: 'You confirmed that the order was received.',
+        Order.Status.RETURNED: 'This order was returned.',
+    }
+    return messages.get(status_value, 'Your order status was updated.')
+
+
+class CheckoutPaymentOrderThrottle(SimpleRateThrottle):
+    """Limit payment retries per protected order, never per shared proxy IP."""
+
+    scope = 'checkout_payment_order'
+
+    def get_cache_key(self, request, view):
+        order_number = str(request.data.get('order_number') or '').strip().upper()
+        if not order_number:
+            return None
+        if request.user.is_authenticated:
+            owner_key = f'user:{request.user.pk}'
+        else:
+            token = str(
+                request.data.get('access_token')
+                or request.headers.get('X-Guest-Order-Token')
+                or ''
+            )
+            if not token:
+                return None
+            owner_key = 'guest:' + hashlib.sha256(token.encode('utf-8')).hexdigest()[:24]
+        ident = f'{owner_key}:{order_number}'
+        return self.cache_format % {'scope': self.scope, 'ident': ident}
+
+
+class OrderCancellationThrottle(CheckoutPaymentOrderThrottle):
+    scope = 'order_cancel'
 
 # FIX 1: explicit whitelist -- CheckoutInitView is a customer-facing API.
 # WALK_IN orders must only ever be created by POSSalesService from the
@@ -46,7 +112,9 @@ ALLOWED_ONLINE_PAYMENT_METHODS = [
 ]
 
 
-def _coupon_discount(coupon_code, subtotal, *, branch, customer=None):
+def _coupon_discount(
+    coupon_code, subtotal, *, branch, customer=None, pricing_sources=(),
+):
     if not coupon_code:
         return Decimal('0.00')
     return PromotionService.validate_coupon_preview(
@@ -54,6 +122,7 @@ def _coupon_discount(coupon_code, subtotal, *, branch, customer=None):
         subtotal=subtotal,
         branch=branch,
         customer=customer,
+        pricing_sources=pricing_sources,
     )
 
 
@@ -111,13 +180,13 @@ def _checkout_response(order, *, replayed=False):
         'payment_method': order.payment_method,
         'next_step': next_step,
         'replayed': replayed,
+        'tracking_url': reverse(
+            'track-order', kwargs={'order_number': order.order_number},
+        ),
     }
     if guest_token:
         payload['guest_access_token'] = guest_token
-        payload['tracking_url'] = (
-            reverse('track-order', kwargs={'order_number': order.order_number})
-            + f'#{guest_token}'
-        )
+        payload['tracking_url'] += f'#{guest_token}'
         payload['account_creation_url'] = reverse('accounts:signup')
     return payload
 
@@ -149,9 +218,9 @@ class CheckoutInitView(APIView):
         existing = Order.objects.filter(checkout_idempotency_key=idempotency_key).first()
         if existing:
             if not order_matches_checkout_owner(existing, request, guest_session_hash):
-                return Response({'error': 'This checkout key is not available.'}, status=status.HTTP_409_CONFLICT)
+                return Response({'error': 'This checkout session expired. Refresh the page and review your cart before trying again.'}, status=status.HTTP_409_CONFLICT)
             if existing.checkout_request_fingerprint != request_fingerprint:
-                return Response({'error': 'This checkout key was reused with different details.'}, status=status.HTTP_409_CONFLICT)
+                return Response({'error': 'Your checkout details changed. Refresh the page, review the order, and confirm again.'}, status=status.HTTP_409_CONFLICT)
             return Response(_checkout_response(existing, replayed=True), status=status.HTTP_200_OK)
 
         # --- FIX 1: validate order_type before anything else ---
@@ -161,7 +230,7 @@ class CheckoutInitView(APIView):
                 {
                     'error': (
                         'Public checkout currently supports S18 pickup only. '
-                        'Town parcel delivery must be arranged through the approved WhatsApp channel.'
+                        'Town parcel orders start with a verified delivery quote. Request one from checkout before paying.'
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -185,7 +254,7 @@ class CheckoutInitView(APIView):
             branch = Branch.objects.get(id=data.get('branch_id'), is_active=True)
         except Branch.DoesNotExist:
             return Response(
-                {'error': 'Invalid or inactive branch.'},
+                {'error': 'We could not find an available shop for this cart. Return to your cart or contact us for help.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -281,7 +350,7 @@ class CheckoutInitView(APIView):
                 or not order_matches_checkout_owner(order, request, guest_session_hash)
                 or order.checkout_request_fingerprint != request_fingerprint
             ):
-                return Response({'error': 'Checkout could not be safely replayed.'}, status=status.HTTP_409_CONFLICT)
+                return Response({'error': 'We could not confirm whether that order was already placed. Check your order tracking before trying again.'}, status=status.HTTP_409_CONFLICT)
             return Response(_checkout_response(order, replayed=True), status=status.HTTP_200_OK)
         except ValidationError as e:
             return Response(
@@ -294,7 +363,7 @@ class CheckoutInitView(APIView):
                 type(e).__name__,
             )
             return Response(
-                {'error': 'An unexpected error occurred. Please try again.'},
+                {'error': 'We could not place your order. No payment was requested. Please try again or contact us for help.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -318,7 +387,7 @@ class CheckoutPreviewView(APIView):
         try:
             branch = Branch.objects.get(pk=data.get('branch_id'), is_active=True)
         except Branch.DoesNotExist:
-            return Response({'error': 'Invalid or inactive branch.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'error': 'We could not find an available shop for this cart. Return to your cart or contact us for help.'}, status=status.HTTP_400_BAD_REQUEST)
 
         order_type = data.get('order_type')
         if order_type not in ALLOWED_ONLINE_ORDER_TYPES:
@@ -326,7 +395,7 @@ class CheckoutPreviewView(APIView):
                 {
                     'error': (
                         'Public checkout currently supports S18 pickup only. '
-                        'Arrange town parcel delivery through WhatsApp.'
+                        'Request a verified town-parcel quote from checkout before paying.'
                     )
                 },
                 status=status.HTTP_400_BAD_REQUEST,
@@ -365,21 +434,46 @@ class CheckoutPreviewView(APIView):
             return Response({'error': 'Your cart is empty.'}, status=status.HTTP_400_BAD_REQUEST)
         if cart.cart_branch_id and cart.cart_branch_id != branch.pk:
             return Response(
-                {'error': 'The checkout branch does not match your cart.'},
+                {'error': 'Your cart availability changed. Return to your cart and try checkout again.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
         stock_check = cart.revalidate_stock(branch=branch)
         if not stock_check['valid']:
+            minimum_issues = stock_check.get('minimum_order_issues', [])
+            if minimum_issues:
+                detail = '; '.join(
+                    f"add {item['shortfall']} more {item['name']} "
+                    f"(minimum {item['required']})"
+                    for item in minimum_issues
+                )
+                return Response(
+                    {
+                        'error': f'Please review your cart before checkout: {detail}.',
+                        'minimum_order_issues': minimum_issues,
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(
                 {'error': 'Some cart quantities are no longer available.', 'stock_issues': stock_check['issues']},
                 status=status.HTTP_409_CONFLICT,
             )
         subtotal = cart.get_total_financial_cost()
+        cart_items = cart.get_cart_items_extended()
+        wholesale_pricing_applied = any(item['wholesale_applied'] for item in cart_items)
+        if data.get('coupon_code', '').strip() and wholesale_pricing_applied:
+            return Response(
+                {
+                    'error': 'A quantity price is already applied. Coupons cannot be combined with quantity pricing.',
+                    'coupon_valid': False,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             discount = _coupon_discount(
                 data.get('coupon_code', '').strip(), subtotal,
                 branch=branch,
                 customer=(request.user if request.user.is_authenticated else None),
+                pricing_sources=(item['pricing_source'] for item in cart_items),
             )
         except ValidationError as exc:
             return Response(
@@ -387,8 +481,17 @@ class CheckoutPreviewView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         total = subtotal - discount + delivery_fee
+        regular_price_total = sum(
+            (Decimal(item['regular_price']) * int(item['quantity']) for item in cart_items),
+            Decimal('0.00'),
+        )
+        product_discount_amount = max(
+            Decimal('0.00'), regular_price_total - subtotal,
+        )
         return Response({
             'subtotal': str(subtotal),
+            'regular_price_total': str(regular_price_total),
+            'product_discount_amount': str(product_discount_amount),
             'discount_amount': str(discount),
             'delivery_fee': str(delivery_fee),
             'parcel_weight_kg': str(parcel_weight) if parcel_weight is not None else None,
@@ -396,6 +499,7 @@ class CheckoutPreviewView(APIView):
             'price_changes': stock_check['price_changes'],
             'coupon_valid': bool(data.get('coupon_code', '').strip()),
             'coupon_code': data.get('coupon_code', '').strip().upper(),
+            'wholesale_pricing_applied': wholesale_pricing_applied,
         })
 
 
@@ -407,6 +511,7 @@ class CheckoutPaymentInitView(APIView):
     called correctly here without instantiation.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [CheckoutPaymentOrderThrottle]
 
     def post(self, request):
         order_number = request.data.get('order_number')
@@ -414,7 +519,7 @@ class CheckoutPaymentInitView(APIView):
 
         if not order_number or not phone:
             return Response(
-                {'error': 'order_number and phone are required.'},
+                {'error': 'Enter your order number and M-Pesa phone number.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -426,7 +531,7 @@ class CheckoutPaymentInitView(APIView):
             return Response({'error': 'Only customer accounts may use checkout.'}, status=status.HTTP_403_FORBIDDEN)
         if order is None:
             return Response(
-                {'error': 'Order not found or already paid.'},
+                {'error': 'We could not start payment for this order. It may already be paid or no longer awaiting payment. Open order tracking to check.'},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -478,7 +583,7 @@ class CheckoutFallbackPaymentView(APIView):
 
         if not order_number or not mpesa_ref:
             return Response(
-                {'error': 'order_number and mpesa_reference are required.'},
+                {'error': 'Enter your order number and M-Pesa confirmation code.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -544,6 +649,8 @@ class OrderStatusView(APIView):
     Customer tracks their own order.
     """
     permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'order_status'
 
     def get(self, request, order_number):
         try:
@@ -562,6 +669,7 @@ class OrderStatusView(APIView):
                 'status_history',
             ).select_related(
                 'branch',
+                'mpesa_payment',
                 'delivery_assignment__rider__user',
                 'parcel_destination',
                 'parcel_dispatch',
@@ -595,6 +703,7 @@ class OrderStatusView(APIView):
                     'status': assignment.get_status_display(),
                 }
 
+        can_cancel, cancellation_message = CustomerOrderCancellationService.eligibility(order)
         return Response({
             'order_number': order.order_number,
             'status': order.status,
@@ -615,18 +724,42 @@ class OrderStatusView(APIView):
                         if hasattr(order, 'parcel_dispatch') else None
                     ),
                 }
-                if order.parcel_destination_id else None
+                if order.is_town_parcel else None
             ),
             'pickup_code': order.pickup_code or None,
             'pickup_expires_at': (
                 order.pickup_expires_at.isoformat()
                 if order.pickup_expires_at else None
             ),
+            'payment_expires_at': (
+                (order.created_at + timedelta(minutes=PAYMENT_RESERVATION_MINUTES)).isoformat()
+                if order.status == Order.Status.PENDING
+                and order.payment_method == Order.PaymentMethod.MPESA_STK
+                and getattr(order, 'mpesa_payment', None) is not None
+                and order.mpesa_payment.status in {
+                    MpesaTransaction.Status.INITIATING,
+                    MpesaTransaction.Status.PENDING,
+                    MpesaTransaction.Status.QUERY_CONFIRMED,
+                }
+                else None
+            ),
+            'can_cancel': can_cancel,
+            'cancellation_deadline': (
+                CustomerOrderCancellationService.deadline(order).isoformat()
+                if can_cancel else None
+            ),
+            'cancellation_message': cancellation_message,
+            'cancelled_by_customer': bool(
+                order.status == Order.Status.CANCELLED
+                and (order.void_reason or '').startswith(
+                    CustomerOrderCancellationService.REASON_PREFIX,
+                )
+            ),
             'rider': rider_data,
             'status_history': [
                 {
                     'status': h.new_status,
-                    'note': h.note,
+                    'message': _customer_status_note(order, h.new_status),
                     'timestamp': h.created_at.isoformat(),
                 }
                 for h in order.status_history.all()
@@ -643,4 +776,42 @@ class OrderStatusView(APIView):
                 }
                 for item in order.items.all()
             ],
+        })
+
+
+class CustomerOrderCancellationView(APIView):
+    """POST /api/orders/{order_number}/cancel/ for the protected order owner."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [OrderCancellationThrottle]
+
+    def post(self, request, order_number):
+        if request.data.get('confirmed') is not True:
+            return Response(
+                {'error': 'Confirm that you want to cancel this order.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            order = _accessible_order(request, order_number)
+        except PermissionError:
+            return Response(
+                {'error': 'Only customer accounts may manage customer orders.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        if order is None:
+            return Response({'error': 'Order not found.'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            cancelled = CustomerOrderCancellationService.cancel(
+                order=order,
+                requested_by=(request.user if request.user.is_authenticated else None),
+            )
+        except ValidationError as exc:
+            return Response(
+                {'error': _validation_message(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response({
+            'order_number': cancelled.order_number,
+            'status': cancelled.status,
+            'message': 'Your order has been cancelled and its items are no longer reserved.',
         })

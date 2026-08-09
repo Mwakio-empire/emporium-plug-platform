@@ -78,6 +78,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.AdminStaffLoginMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django.middleware.csp.ContentSecurityPolicyMiddleware',
@@ -123,9 +124,14 @@ if ASYNC_HEARTBEAT_MAX_AGE_SECONDS < 120:
 
 AUTH_USER_MODEL = 'users.User'
 
+PASSWORD_MINIMUM_LENGTH = 15
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
-    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
+    {
+        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        'OPTIONS': {'min_length': PASSWORD_MINIMUM_LENGTH},
+    },
     {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
@@ -146,6 +152,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # channel. Development defaults to console output and tests to Django's in-memory
 # backend, so ordinary local work cannot contact real recipients.
 REPORT_EMAIL_ENABLED = env.bool('REPORT_EMAIL_ENABLED', default=False)
+TRANSACTIONAL_EMAIL_ENABLED = env.bool(
+    'TRANSACTIONAL_EMAIL_ENABLED', default=False,
+)
 EMAIL_BACKEND = env(
     'EMAIL_BACKEND',
     default=(
@@ -161,6 +170,19 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='').strip()
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='').strip()
 EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=20)
+if TRANSACTIONAL_EMAIL_ENABLED and not IS_TESTING:
+    if EMAIL_BACKEND != 'django.core.mail.backends.smtp.EmailBackend':
+        raise ImproperlyConfigured(
+            'Transactional email requires the SMTP email backend outside tests.'
+        )
+    if not EMAIL_HOST_USER or not EMAIL_HOST_PASSWORD or not DEFAULT_FROM_EMAIL:
+        raise ImproperlyConfigured(
+            'Transactional email requires SMTP credentials and an approved sender.'
+        )
+if IS_PRODUCTION and not IS_TESTING and not TRANSACTIONAL_EMAIL_ENABLED:
+    raise ImproperlyConfigured(
+        'Production requires verified transactional email delivery.'
+    )
 
 # ----------------------------------------------------------------------
 # STATIC & MEDIA FILES
@@ -266,6 +288,11 @@ CACHE_TTL_PROMOTIONS = 60 * 30   # 30 minutes — coupon/flash sale validations
 # ----------------------------------------------------------------------
 CELERY_BROKER_URL = REDIS_URL if REDIS_URL and not LOCAL_CACHE_ONLY else 'memory://'
 CELERY_RESULT_BACKEND = REDIS_URL if REDIS_URL and not LOCAL_CACHE_ONLY else 'cache+memory://'
+CELERY_TASK_ALWAYS_EAGER = env.bool('CELERY_TASK_ALWAYS_EAGER', default=False)
+if CELERY_TASK_ALWAYS_EAGER and not (DEBUG or IS_TESTING):
+    raise ImproperlyConfigured(
+        'CELERY_TASK_ALWAYS_EAGER is restricted to development and tests.'
+    )
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -279,6 +306,9 @@ CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 SITE_BASE_URL = env('SITE_BASE_URL', default='https://example.com')
 PICKUP_RESERVATION_WORKING_DAYS = env.int('PICKUP_RESERVATION_WORKING_DAYS', default=2)
 RETURN_REQUEST_WINDOW_DAYS = env.int('RETURN_REQUEST_WINDOW_DAYS', default=7)
+CUSTOMER_ORDER_CANCELLATION_MINUTES = env.int(
+    'CUSTOMER_ORDER_CANCELLATION_MINUTES', default=10,
+)
 PRIVACY_CONTROLLER_NAME = env('PRIVACY_CONTROLLER_NAME', default='').strip()
 PRIVACY_CONTACT_EMAIL = env('PRIVACY_CONTACT_EMAIL', default='').strip()
 PRIVACY_NOTICE_APPROVED = env.bool('PRIVACY_NOTICE_APPROVED', default=False)
@@ -347,8 +377,36 @@ BACKUP_PGSSLMODE = env(
 BACKUP_COMMAND_TIMEOUT_SECONDS = env.int('BACKUP_COMMAND_TIMEOUT_SECONDS', default=1800)
 if BACKUP_ENABLED and not BACKUP_S3_BUCKET:
     raise ImproperlyConfigured('BACKUP_S3_BUCKET is required when BACKUP_ENABLED is true.')
+if IS_PRODUCTION and not IS_TESTING and not BACKUP_ENABLED:
+    raise ImproperlyConfigured(
+        'Production requires the approved encrypted off-site backup job.'
+    )
 if BACKUP_PGSSLMODE not in {'disable', 'allow', 'prefer', 'require', 'verify-ca', 'verify-full'}:
     raise ImproperlyConfigured('BACKUP_PGSSLMODE is not a supported PostgreSQL SSL mode.')
+
+MPESA_ENVIRONMENT = env('MPESA_ENVIRONMENT', default='sandbox').strip().lower()
+if MPESA_ENVIRONMENT not in {'sandbox', 'production'}:
+    raise ImproperlyConfigured('MPESA_ENVIRONMENT must be sandbox or production.')
+if IS_PRODUCTION and not IS_TESTING and MPESA_ENVIRONMENT != 'production':
+    raise ImproperlyConfigured(
+        'Production cannot start while M-Pesa is configured for sandbox.'
+    )
+if IS_PRODUCTION and not IS_TESTING:
+    required_mpesa_settings = {
+        name: env(name, default='').strip()
+        for name in (
+            'MPESA_CONSUMER_KEY', 'MPESA_CONSUMER_SECRET', 'MPESA_SHORTCODE',
+            'MPESA_PASSKEY', 'MPESA_CALLBACK_URL',
+        )
+    }
+    missing_mpesa_settings = [
+        name for name, value in required_mpesa_settings.items() if not value
+    ]
+    if missing_mpesa_settings:
+        raise ImproperlyConfigured(
+            'Production requires complete Daraja credentials and callback configuration: '
+            + ', '.join(missing_mpesa_settings)
+        )
 
 # ----------------------------------------------------------------------
 # SENTRY — guarded so it doesn't crash when DSN is empty in development
@@ -376,6 +434,17 @@ if SENTRY_DSN:
 # ----------------------------------------------------------------------
 # SECURITY HEADERS (production only)
 # ----------------------------------------------------------------------
+# Trusted origins are also required for HTTPS development tunnels. Keeping
+# this outside the production-only block allows an explicitly configured
+# Cloudflare staging origin to submit CSRF-protected forms while DEBUG=True.
+CSRF_TRUSTED_ORIGINS = [
+    origin.strip() for origin in env('CSRF_TRUSTED_ORIGINS', default='').split(',')
+    if origin.strip()
+]
+TRUST_PROXY_HEADERS = env.bool('TRUST_PROXY_HEADERS', default=False)
+if TRUST_PROXY_HEADERS:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 if not DEBUG:
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_SSL_REDIRECT = env.bool('SECURE_SSL_REDIRECT', default=True)
@@ -387,10 +456,6 @@ if not DEBUG:
         'SECURE_HSTS_INCLUDE_SUBDOMAINS', default=False,
     )
     SECURE_HSTS_PRELOAD = env.bool('SECURE_HSTS_PRELOAD', default=False)
-    CSRF_TRUSTED_ORIGINS = [
-        origin.strip() for origin in env('CSRF_TRUSTED_ORIGINS', default='').split(',')
-        if origin.strip()
-    ]
     if not CSRF_TRUSTED_ORIGINS or any(
         not origin.startswith('https://') for origin in CSRF_TRUSTED_ORIGINS
     ):
@@ -399,8 +464,6 @@ if not DEBUG:
         )
     if not SITE_BASE_URL.startswith('https://'):
         raise ImproperlyConfigured('SITE_BASE_URL must use HTTPS when DEBUG is false.')
-    if env.bool('TRUST_PROXY_HEADERS', default=False):
-        SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 else:
     X_FRAME_OPTIONS = 'SAMEORIGIN'
 
@@ -469,6 +532,10 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 24,
+    # Set only when the deployment has this exact number of trusted proxies.
+    # This lets DRF identify the real client instead of rate-limiting every
+    # customer under the proxy's address.
+    'NUM_PROXIES': env.int('DRF_NUM_PROXIES', default=0),
     'DEFAULT_FILTER_BACKENDS': [
         'django_filters.rest_framework.DjangoFilterBackend',
         'rest_framework.filters.SearchFilter',
@@ -485,8 +552,19 @@ REST_FRAMEWORK = {
         'login': '20/hour',
         'signup': '10/hour',
         'otp': '30/hour',
+        'checkout_payment_order': '6/hour',
+        'order_cancel': '5/hour',
+        'order_status': '900/hour',
+        'delivery_quote_create': '10/hour',
+        'delivery_quote_status': '300/hour',
+        'delivery_quote_accept': '10/hour',
+        'location_lookup': '120/min',
     },
 }
+
+# Increment this value when the maintained county/town reference data changes.
+LOCATION_REFERENCE_DATA_VERSION = '2019-KPHC-URBAN-CENTRES-v1'
+LOCATION_LOOKUP_CACHE_SECONDS = 300
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=15),

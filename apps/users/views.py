@@ -6,7 +6,13 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import get_user_model, login as django_login, logout as django_logout, authenticate
+from django.contrib.auth import (
+    authenticate,
+    get_user_model,
+    login as django_login,
+    logout as django_logout,
+    update_session_auth_hash,
+)
 from django.contrib import messages
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -38,6 +44,7 @@ from .forms import (
     PasswordResetRequestForm, PasswordResetConfirmForm,
     StaffAccountProvisionForm, StaffInviteActivationForm,
     PrivacyRequestForm, PrivacyExportForm, CustomerProfileForm,
+    AuthenticatedPasswordChangeForm,
 )
 from .otp_services import OTPService
 from .models import OTPVerification, PrivacyRequest
@@ -196,6 +203,12 @@ def _client_ip(request):
     return request.META.get('REMOTE_ADDR', 'unknown')
 
 
+def _validation_message(exc):
+    """Return a human message without Django's list-style representation."""
+    messages_list = getattr(exc, 'messages', None)
+    return messages_list[0] if messages_list else str(exc)
+
+
 def _safe_next(request, value):
     """Return a local redirect target or an empty string."""
     if value and url_has_allowed_host_and_scheme(
@@ -258,7 +271,7 @@ class CustomerLoginView(View):
             identifier_key = hashlib.sha256(identifier.lower().encode('utf-8')).hexdigest()
             check_rate_limit(f"ratelimit:login_id:{ip}:{identifier_key}", limit=5, window_seconds=300)
         except ValidationError as e:
-            form.add_error(None, str(e))
+            form.add_error(None, _validation_message(e))
             return render(request, self.template_name, {'form': form, 'next': next_url})
 
         candidate = resolve_user_identifier(User, identifier)
@@ -296,6 +309,8 @@ class CustomerLoginView(View):
                 guest_cart,
                 guest_branch_id,
             )
+            from catalog.wishlist_services import merge_guest_wishlist
+            merge_guest_wishlist(request, user)
             AuditTrackingService.log_action(
                 user=user, action_type=AuditLog.ActionTypes.LOGIN,
                 description="Successful customer login.",
@@ -340,7 +355,7 @@ class CustomerSignupView(View):
         try:
             check_rate_limit(f"ratelimit:signup:{ip}", limit=5, window_seconds=3600)
         except ValidationError as e:
-            form.add_error(None, str(e))
+            form.add_error(None, _validation_message(e))
             return render(request, self.template_name, {'form': form, 'next': next_url})
 
         if form.is_valid():
@@ -406,6 +421,55 @@ class CustomerProfileView(LoginRequiredMixin, UserPassesTestMixin, View):
         return redirect('accounts:profile')
 
 
+class AuthenticatedPasswordChangeView(LoginRequiredMixin, UserPassesTestMixin, View):
+    template_name = 'users/password_change.html'
+
+    def test_func(self):
+        return self.request.user.role == User.Role.CUSTOMER
+
+    def get(self, request):
+        return render(request, self.template_name, {
+            'form': AuthenticatedPasswordChangeForm(user=request.user),
+        })
+
+    def post(self, request):
+        form = AuthenticatedPasswordChangeForm(request.POST, user=request.user)
+        ip = _client_ip(request)
+        try:
+            check_rate_limit(
+                f'ratelimit:password_change:{request.user.pk}:{ip}',
+                limit=5,
+                window_seconds=600,
+            )
+        except ValidationError as exc:
+            form.add_error(None, _validation_message(exc))
+            return render(request, self.template_name, {'form': form}, status=429)
+
+        if not form.is_valid():
+            return render(request, self.template_name, {'form': form}, status=400)
+
+        with transaction.atomic():
+            user = User.objects.select_for_update().get(pk=request.user.pk)
+            if not user.check_password(form.cleaned_data['current_password']):
+                form.add_error('current_password', 'Current password is incorrect.')
+                return render(request, self.template_name, {'form': form}, status=400)
+            user.set_password(form.cleaned_data['new_password'])
+            user.token_version += 1
+            user.last_password_change_at = timezone.now()
+            user.save(update_fields=['password', 'token_version', 'last_password_change_at'])
+            AuditTrackingService.log_action(
+                user=user,
+                action_type=AuditLog.ActionTypes.PASSWORD_CHANGED,
+                description='Customer changed password; other sessions and API tokens were invalidated.',
+                ip_address=ip,
+            )
+
+        update_session_auth_hash(request, user)
+        AuthenticationSecurityService.clear_failures(user)
+        messages.success(request, 'Password changed. Other signed-in sessions have been closed.')
+        return redirect('accounts:profile')
+
+
 class OTPVerifyView(View):
     """Signup verification -- flips is_active True on success."""
     template_name = 'users/verify_otp.html'
@@ -434,7 +498,7 @@ class OTPVerifyView(View):
             check_rate_limit(f"ratelimit:otp_verify_ip:{ip}", limit=20, window_seconds=300)
         except ValidationError as e:
             form = OTPVerifyForm(request.POST)
-            form.add_error(None, str(e))
+            form.add_error(None, _validation_message(e))
             return render(request, self.template_name, {'form': form, 'phone': user.phone_number})
 
         form = OTPVerifyForm(request.POST)
@@ -442,9 +506,11 @@ class OTPVerifyView(View):
             try:
                 OTPService.verify(user, form.cleaned_data['code'])
             except ValidationError as e:
-                form.add_error('code', str(e))
+                form.add_error('code', _validation_message(e))
                 return render(request, self.template_name, {'form': form, 'phone': user.phone_number})
             django_login(request, user, backend='users.backends.PhoneOrEmailBackend')
+            from catalog.wishlist_services import merge_guest_wishlist
+            merge_guest_wishlist(request, user)
             AuditTrackingService.log_action(
                 user=user, action_type=AuditLog.ActionTypes.LOGIN,
                 description="Customer signup verified; login completed.",
@@ -471,7 +537,7 @@ class OTPResendView(View):
             OTPService.generate_and_send(user)
             messages.success(request, "A new code has been sent.")
         except ValidationError as e:
-            messages.error(request, str(e))
+            messages.error(request, _validation_message(e))
         return redirect('accounts:verify-otp')
 
 
@@ -486,11 +552,37 @@ class StaffOTPVerifyView(View):
         user_id = request.session.get('pending_staff_login_user_id')
         return User.objects.filter(id=user_id, is_active=True).first() if user_id else None
 
+    @staticmethod
+    def _delivery_context(user, form):
+        destinations = []
+        if settings.NOTIFICATION_PROVIDER != 'console':
+            destinations.append(str(user.phone_number))
+        if settings.TRANSACTIONAL_EMAIL_ENABLED and user.email:
+            local, _, domain = user.email.partition('@')
+            masked_email = f"{local[:1]}***@{domain}" if domain else 'your verified email'
+            destinations.append(masked_email)
+        if len(destinations) == 2:
+            delivery_message = (
+                f"We sent a security code to {destinations[0]} and {destinations[1]}."
+            )
+        elif destinations:
+            delivery_message = f"We sent a security code to {destinations[0]}."
+        else:
+            delivery_message = ''
+        return {
+            'form': form,
+            'delivery_enabled': bool(destinations),
+            'delivery_message': delivery_message,
+        }
+
     def get(self, request):
         user = self._pending_user(request)
         if user is None:
             return redirect('accounts:login')
-        return render(request, self.template_name, {'form': OTPVerifyForm(), 'phone': user.phone_number})
+        return render(
+            request, self.template_name,
+            self._delivery_context(user, OTPVerifyForm()),
+        )
 
     def post(self, request):
         user = self._pending_user(request)
@@ -501,16 +593,16 @@ class StaffOTPVerifyView(View):
             check_rate_limit(f"ratelimit:staff_otp_ip:{ip}", limit=20, window_seconds=300)
         except ValidationError as e:
             form = OTPVerifyForm(request.POST)
-            form.add_error(None, str(e))
-            return render(request, self.template_name, {'form': form, 'phone': user.phone_number})
+            form.add_error(None, _validation_message(e))
+            return render(request, self.template_name, self._delivery_context(user, form))
 
         form = OTPVerifyForm(request.POST)
         if form.is_valid():
             try:
                 OTPService.verify(user, form.cleaned_data['code'], purpose=OTPVerification.Purpose.STAFF_LOGIN)
             except ValidationError as e:
-                form.add_error('code', str(e))
-                return render(request, self.template_name, {'form': form, 'phone': user.phone_number})
+                form.add_error('code', _validation_message(e))
+                return render(request, self.template_name, self._delivery_context(user, form))
             django_login(request, user, backend='users.backends.PhoneOrEmailBackend')
             AuditTrackingService.log_action(
                 user=user, action_type=AuditLog.ActionTypes.LOGIN,
@@ -520,7 +612,7 @@ class StaffOTPVerifyView(View):
             next_url = request.session.pop('pending_staff_login_next', '')
             _clear_pending_session(request, 'pending_staff_login_user_id')
             return redirect(_safe_next(request, next_url) or self._default_redirect_for(user))
-        return render(request, self.template_name, {'form': form, 'phone': user.phone_number})
+        return render(request, self.template_name, self._delivery_context(user, form))
 
     @staticmethod
     def _default_redirect_for(user):
@@ -540,11 +632,18 @@ class StaffOTPResendView(View):
         user = User.objects.filter(id=user_id, is_active=True).first() if user_id else None
         if user is None:
             return redirect('accounts:login')
+        delivery_context = StaffOTPVerifyView._delivery_context(user, OTPVerifyForm())
+        if not delivery_context['delivery_enabled']:
+            messages.error(
+                request,
+                "A new code was not sent because no OTP delivery provider is configured.",
+            )
+            return redirect('accounts:verify-staff-otp')
         try:
             OTPService.generate_and_send(user, purpose=OTPVerification.Purpose.STAFF_LOGIN)
             messages.success(request, "A new code has been sent.")
         except ValidationError as e:
-            messages.error(request, str(e))
+            messages.error(request, _validation_message(e))
         return redirect('accounts:verify-staff-otp')
 
 
@@ -562,7 +661,7 @@ class PasswordResetRequestView(View):
             try:
                 check_rate_limit(f"ratelimit:pwreset:{ip}", limit=5, window_seconds=600)
             except ValidationError as e:
-                form.add_error(None, str(e))
+                form.add_error(None, _validation_message(e))
                 return render(request, self.template_name, {'form': form})
 
             identifier = form.cleaned_data['identifier']
@@ -793,7 +892,7 @@ class PrivacyOperationsView(LoginRequiredMixin, UserPassesTestMixin, View):
                 response_note=request.POST.get('response_note'),
             )
         except (ValidationError, PrivacyRequest.DoesNotExist) as exc:
-            messages.error(request, str(exc))
+            messages.error(request, _validation_message(exc))
             return redirect('accounts:privacy-operations')
         AuditTrackingService.log_action(
             user=request.user,

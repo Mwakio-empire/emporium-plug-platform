@@ -14,19 +14,23 @@
     <div>
         {% with first_gallery=product.gallery_images.first %}
         {% if product.image or first_gallery %}
-        <img id="main-product-image" src="{% if product.image %}{{ product.image.url }}{% else %}{{ first_gallery.image.url }}{% endif %}"
+        <div class="product-image-shell aspect-square overflow-hidden rounded-xl bg-slate-100" data-image-shell>
+        <img id="main-product-image" src="{% if product.image %}{{ product.image|storefront_image_url:960 }}{% else %}{{ first_gallery.image|storefront_image_url:960 }}{% endif %}"
+             srcset="{% if product.image %}{{ product.image|storefront_image_url:640 }} 640w, {{ product.image|storefront_image_url:960 }} 960w{% else %}{{ first_gallery.image|storefront_image_url:640 }} 640w, {{ first_gallery.image|storefront_image_url:960 }} 960w{% endif %}"
+             sizes="(max-width: 1023px) 100vw, 50vw" width="960" height="960" loading="eager" fetchpriority="high" decoding="async" data-progressive-image
              alt="{% if product.image %}{{ product.name }}{% else %}{{ first_gallery.alt_text }}{% endif %}"
              class="w-full rounded-xl object-cover aspect-square">
+        </div>
         {% else %}
         <div class="w-full aspect-square rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 text-sm">Image unavailable</div>
         {% endif %}
         {% endwith %}
         {% if product.image or product.gallery_images.all %}
         <div class="mt-3 grid grid-cols-5 gap-2" aria-label="Product images">
-            {% if product.image %}<button type="button" class="product-image-option border rounded-lg overflow-hidden" data-image-url="{{ product.image.url }}" data-image-alt="{{ product.name }}"><img src="{{ product.image.url }}" alt="{{ product.name }}" class="aspect-square object-cover"></button>{% endif %}
+            {% if product.image %}<button type="button" class="product-image-option product-image-shell border rounded-lg overflow-hidden" data-image-shell data-image-url="{{ product.image|storefront_image_url:960 }}" data-image-alt="{{ product.name }}"><img src="{{ product.image|storefront_image_url:192 }}" alt="{{ product.name }}" width="192" height="192" loading="lazy" decoding="async" data-progressive-image class="aspect-square object-cover"></button>{% endif %}
             {% for gallery_image in product.gallery_images.all %}
-            <button type="button" class="product-image-option border rounded-lg overflow-hidden" data-image-url="{{ gallery_image.image.url }}" data-image-alt="{{ gallery_image.alt_text }}">
-                <img src="{{ gallery_image.image.url }}" alt="{{ gallery_image.alt_text }}" loading="lazy" class="aspect-square object-cover">
+            <button type="button" class="product-image-option product-image-shell border rounded-lg overflow-hidden" data-image-shell data-image-url="{{ gallery_image.image|storefront_image_url:960 }}" data-image-alt="{{ gallery_image.alt_text }}">
+                <img src="{{ gallery_image.image|storefront_image_url:192 }}" alt="{{ gallery_image.alt_text }}" width="192" height="192" loading="lazy" decoding="async" data-progressive-image class="aspect-square object-cover">
             </button>
             {% endfor %}
         </div>
@@ -36,33 +40,36 @@
         <span class="text-[10px] font-mono font-bold tracking-wider text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full uppercase">{{ product.category.name }}</span>
         <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ product.name }}</h1>
 
-        {% if average_rating %}
-        <div class="flex items-center gap-1 text-sm text-amber-500">
-            {% for i in "12345" %}★{% endfor %}
-            <span class="text-gray-500 text-xs ml-1">{{ average_rating }} / 5 ({{ reviews|length }} review{{ reviews|length|pluralize }})</span>
-        </div>
-        {% endif %}
+        {% if average_rating %}<p class="text-sm font-semibold text-amber-700"><span aria-hidden="true">&#9733;</span> {{ average_rating|floatformat:1 }} out of 5 <span class="font-normal text-slate-500">from {{ review_count }} verified review{{ review_count|pluralize }}</span></p>{% else %}<p class="text-sm text-slate-500">Not yet reviewed</p>{% endif %}
 
         {% if has_variants %}
-        <div id="variant-picker" class="space-y-2">
-            <p class="text-xs font-bold uppercase tracking-wider text-gray-400">Choose an option</p>
-            <div class="flex flex-wrap gap-2">
-                {% for vd in variant_data %}
-                <button type="button"
-                        class="variant-option border rounded-lg px-3 py-2 text-xs font-semibold transition
-                               {% if not forloop.first %}border-gray-200 text-gray-600{% else %}border-brand-600 bg-brand-50 text-brand-700{% endif %}
-                               {% if vd.stock == 0 %}opacity-40 cursor-not-allowed{% endif %}"
-                        {% if vd.stock > 0 %}data-variant-select{% else %}disabled{% endif %}
-                        data-variant-id="{{ vd.variant.id }}"
-                        data-price="{{ vd.price }}"
-                        data-stock="{{ vd.stock }}"
-                        data-flash-end="{% if vd.flash_sale %}{{ vd.flash_sale.end_time|date:'c' }}{% endif %}">
-                    {{ vd.variant.attribute_name }}: {{ vd.variant.attribute_value }}
-                    {% if vd.stock == 0 %} (Sold out){% endif %}
-                </button>
-                {% endfor %}
-            </div>
+        <div id="variant-picker" class="space-y-4" aria-label="Product options">
+            {% for option in option_groups %}
+            <fieldset class="space-y-2" data-option-group data-option-id="{{ option.id }}">
+                <legend class="text-xs font-bold uppercase tracking-wider text-slate-500">
+                    {{ option.name }}: <span class="normal-case tracking-normal text-slate-900" data-selected-option-label></span>
+                </legend>
+                {% if option.display_type == 'DROPDOWN' %}
+                <select class="w-full rounded-xl border-slate-300 text-sm focus:border-brand-600 focus:ring-brand-600 sm:max-w-xs" data-option-select aria-label="Choose {{ option.name }}">
+                    {% for value in option.values.all %}<option value="{{ value.id }}">{{ value.value }}</option>{% endfor %}
+                </select>
+                {% else %}
+                <div class="flex flex-wrap gap-2">
+                    {% for value in option.values.all %}
+                    <button type="button"
+                            class="variant-value inline-flex min-h-11 items-center gap-2 rounded-xl border border-slate-300 bg-white px-3.5 py-2 text-sm font-semibold text-slate-700 transition hover:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2"
+                            data-option-value="{{ value.id }}" data-option-label="{{ value.value }}" aria-pressed="false">
+                        {% if option.display_type == 'COLOUR' %}<span class="h-5 w-5 rounded-full border border-black/15 shadow-sm" style="background-color: {{ value.colour_hex|default:'#E5E7EB' }}" aria-hidden="true"></span>{% endif %}
+                        <span>{{ value.value }}</span>
+                    </button>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </fieldset>
+            {% endfor %}
+            <p id="variant-selection-message" class="text-xs text-slate-500" aria-live="polite">Choose the available options above.</p>
         </div>
+        {{ variant_matrix|json_script:"variant-matrix-data" }}
         {% endif %}
 
         <div class="flex items-baseline gap-3">
@@ -81,8 +88,33 @@
         <p id="stock-note" class="text-xs {% if in_stock %}text-emerald-600{% else %}text-rose-600{% endif %} font-semibold">
             {% if in_stock %}In stock and ready to order{% else %}Currently out of stock{% endif %}
         </p>
+        {% if has_variants %}<p id="variant-sku" class="text-xs text-slate-500">SKU: {{ variant_data.0.variant.sku }}</p>{% endif %}
 
         <p class="text-sm text-gray-600 leading-relaxed">{{ product.description|default:"No description available for this product yet." }}</p>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm" aria-labelledby="product-location-heading">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <h2 id="product-location-heading" class="text-base font-black text-slate-950">Choose your location</h2>
+                    <p data-shopper-location-summary class="mt-1 text-sm font-bold text-slate-800">{% if shopper_location.town_name %}{{ shopper_location.town_name }}, {{ shopper_location.county_name }}{% else %}Choose county and city / area{% endif %}</p>
+                    <p class="mt-2 text-xs leading-5 text-slate-600">S18 pickup is available. For a town parcel, we confirm the route, collection point and transport price before you pay.</p>
+                </div>
+                <button type="button" data-shopper-location-open class="shrink-0 rounded-lg border border-brand-600 px-3 py-2 text-xs font-black text-brand-700 hover:bg-brand-50" aria-haspopup="dialog" aria-controls="shopper-location-dialog">{% if shopper_location.town_name %}Change{% else %}Select{% endif %}</button>
+            </div>
+        </section>
+
+        {% if product.minimum_order_quantity > 1 or quantity_price_tiers %}
+        <section class="rounded-xl border border-slate-200 bg-slate-50 p-4" aria-labelledby="quantity-pricing-heading">
+            <h2 id="quantity-pricing-heading" class="text-sm font-black text-slate-950">Wholesale quantity pricing</h2>
+            {% if product.minimum_order_quantity > 1 %}<p class="mt-1 text-xs leading-5 text-slate-600">Minimum order: {{ product.minimum_order_quantity }} units of this product.</p>{% endif %}
+            {% if quantity_price_tiers %}
+            <ul class="mt-2 space-y-1 text-sm text-slate-700">
+                {% for tier in quantity_price_tiers %}<li><strong>{{ tier.minimum_quantity }}+ units:</strong> {{ tier.discount_percentage|floatformat:0 }}% off the regular unit price</li>{% endfor %}
+            </ul>
+            {% endif %}
+            {% if has_variants %}<p class="mt-2 text-xs leading-5 text-slate-500">Mix sizes, colours and other options of this product; their quantities count together. The best eligible product price is applied automatically.</p>{% endif %}
+        </section>
+        {% endif %}
 
         <p class="rounded-lg bg-slate-50 p-3 text-xs text-slate-700">
             {% if product.customer_return_policy == 'SEVEN_DAY' %}
@@ -103,7 +135,8 @@
         </section>
         {% endif %}
 
-        <form hx-post="{% url 'core:cart_action_gateway' %}" hx-target="#cart-drawer-target" class="pt-2">
+        <div class="flex flex-col gap-3 pt-2 sm:flex-row sm:items-end">
+        <form hx-post="{% url 'core:cart_action_gateway' %}" hx-target="#cart-drawer-target" class="flex-1">
             {% csrf_token %}
             <input type="hidden" name="action" value="add">
             {% if has_variants %}
@@ -122,11 +155,39 @@
                 {% if in_stock %}Add to cart{% else %}Out of stock{% endif %}
             </button>
         </form>
+        <form method="post" action="{% url 'core:wishlist_toggle' product.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.get_full_path }}"><button class="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-5 py-3 text-sm font-bold text-slate-800 hover:border-rose-300 hover:text-rose-700" type="submit">{% if is_wishlisted %}<svg aria-hidden="true" class="h-5 w-5 text-rose-600" viewBox="0 0 24 24" fill="currentColor"><path d="M21 8.25c0-2.49-2.1-4.5-4.69-4.5-1.93 0-3.59 1.12-4.31 2.73-.72-1.61-2.38-2.73-4.31-2.73C5.1 3.75 3 5.76 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg> Remove from wishlist{% else %}<svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8.25c0-2.49-2.1-4.5-4.69-4.5-1.93 0-3.59 1.12-4.31 2.73-.72-1.61-2.38-2.73-4.31-2.73C5.1 3.75 3 5.76 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg> Save to wishlist{% endif %}</button></form>
+        </div>
+
+        {% if restock_manage_subscription %}
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950" role="status">
+            <p class="font-bold">Your restock alert is active.</p>
+            <p class="mt-1 text-xs leading-5">We will send one SMS when {{ restock_manage_subscription.item_label }} becomes available. This does not reserve stock.</p>
+            <a class="mt-2 inline-flex font-bold text-emerald-800 underline" href="{% url 'core:restock_cancel' restock_manage_subscription.unsubscribe_token %}">Manage or cancel alert</a>
+        </div>
+        {% endif %}
+
+        {% if not restock_manage_subscription %}<section id="restock-alert-panel" data-restock-panel class="rounded-xl border border-brand-200 bg-brand-50 p-4 {% if in_stock %}hidden{% endif %}" aria-labelledby="restock-alert-heading">
+            <h2 id="restock-alert-heading" class="text-base font-black text-slate-950">Notify me when available</h2>
+            <p class="mt-1 text-xs leading-5 text-slate-600">Get one SMS when this exact item returns. Alerts expire after 90 days, do not reserve stock, and are not marketing messages.</p>
+            <form method="post" action="{% url 'core:restock_subscribe' %}" class="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end">
+                {% csrf_token %}
+                <input type="hidden" name="product_id" value="{{ product.id }}">
+                {% if has_variants %}<input type="hidden" id="restock-variant-id" name="variant_id" value="{{ variant_data.0.variant.id }}">{% endif %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <label for="restock-phone" class="flex-1 text-sm font-bold text-slate-800">Mobile number
+                    <input id="restock-phone" name="phone_number" type="tel" required autocomplete="tel" inputmode="tel" value="{{ restock_phone }}" placeholder="e.g. 0712 345 678" class="mt-1 w-full rounded-xl border-slate-300 bg-white text-sm focus:border-brand-600 focus:ring-brand-600">
+                </label>
+                <button type="submit" class="rounded-xl bg-brand-600 px-5 py-3 text-sm font-bold text-white hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2">Create alert</button>
+            </form>
+        </section>{% endif %}
     </div>
 </div>
 
 <div class="mt-8 bg-white rounded-xl p-6 shadow-sm border border-gray-100">
-    <h3 class="text-sm font-bold uppercase tracking-wider text-gray-500 mb-4">Customer Reviews</h3>
+    <div class="mb-5 flex flex-wrap items-end justify-between gap-3">
+        <div><p class="text-xs font-bold uppercase tracking-wider text-brand-700">Customer feedback</p><h2 class="mt-1 text-xl font-black text-slate-950">Reviews</h2></div>
+        {% if average_rating %}<p class="rounded-full bg-amber-50 px-4 py-2 text-sm font-bold text-amber-800"><span aria-hidden="true">&#9733;</span> {{ average_rating|floatformat:1 }} out of 5 <span class="font-medium text-slate-500">({{ review_count }})</span></p>{% endif %}
+    </div>
     {% if can_review %}
     <form method="post" action="{% url 'marketing:customer-review-create' product.id %}" class="mb-6 grid gap-3 rounded-xl bg-brand-50 p-4 sm:grid-cols-[8rem_1fr_auto] sm:items-end">
         {% csrf_token %}
@@ -134,18 +195,20 @@
         <label class="text-sm font-semibold">Your review<textarea name="comment" required minlength="5" maxlength="2000" rows="2" class="mt-1 w-full rounded-lg border-gray-300" placeholder="Describe your experience with this product"></textarea></label>
         <button class="rounded-lg bg-slate-900 px-5 py-2 font-bold text-white hover:bg-brand-600">Submit review</button>
     </form>
-    {% elif review_submitted %}<p class="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">You have already submitted a review for this product.</p>{% endif %}
+    {% elif review_submitted %}<p class="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-blue-900">Your review has been submitted. It appears publicly after moderation.</p>
+    {% elif not user.is_authenticated %}<p class="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700"><a class="font-bold text-brand-700 underline" href="{% url 'accounts:login' %}?next={{ request.path|urlencode }}">Sign in</a> to review a product you purchased.</p>
+    {% else %}<p class="mb-4 rounded-lg bg-slate-50 p-3 text-sm text-slate-700">Reviews are available after a completed purchase of this product.</p>{% endif %}
     {% if reviews %}
-    <div class="space-y-4">
+    <div class="grid gap-4 md:grid-cols-2">
         {% for r in reviews %}
-        <div class="border-b border-gray-100 pb-3 last:border-0">
-            <div class="flex items-center gap-2">
-                <span class="text-amber-500 text-xs">{% for i in r.rating|ljust:5 %}★{% endfor %}</span>
-                <span class="text-xs font-semibold text-gray-700">{{ r.customer.first_name|default:"Customer" }}</span>
-                {% if r.is_verified_purchase %}<span class="text-[10px] text-emerald-600 font-bold">Verified Purchase</span>{% endif %}
+        <article class="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm font-black text-amber-600" aria-label="{{ r.rating }} out of 5 stars">&#9733; {{ r.rating }}/5</span>
+                <span class="text-sm font-bold text-slate-800">{{ r.customer.first_name|default:"Customer" }}</span>
+                {% if r.moderation_reason|slice:":10" == "DEMO_ONLY:" %}<span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800">Sample review</span>{% elif r.is_verified_purchase %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">Verified purchase</span>{% endif %}
             </div>
-            <p class="text-sm text-gray-600 mt-1">{{ r.comment }}</p>
-        </div>
+            <p class="mt-3 text-sm leading-6 text-slate-600">{{ r.comment }}</p>
+        </article>
         {% endfor %}
     </div>
     {% else %}<p class="text-sm text-gray-500">No approved reviews yet.</p>{% endif %}
@@ -253,4 +316,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 {% endcomment %}
 {% endblock %}
-{% block extra_js %}{% load static %}<script src="{% static 'core/product_detail.js' %}" defer></script>{% endblock %}
+{% block extra_js %}{% load static %}<script src="{% static 'core/product_detail.js' %}?v=20260801a" defer></script>{% endblock %}

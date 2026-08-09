@@ -54,6 +54,13 @@ class Coupon(models.Model):
         help_text="Leave empty for all branches.",
     )
     is_active = models.BooleanField(default=True, db_index=True)
+    allow_discounted_items = models.BooleanField(
+        default=False,
+        help_text=(
+            'Allow this coupon on flash-sale items. Quantity/wholesale prices '
+            'remain ineligible.'
+        ),
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
    

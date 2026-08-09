@@ -7,7 +7,7 @@
     const slots = JSON.parse(document.getElementById('pickup-slots-data').textContent);
     const fields = {
         branch: document.getElementById('branch'),
-        orderTypes: [...document.querySelectorAll('[name="order_type"]')],
+        fulfilmentChoices: [...document.querySelectorAll('[name="fulfilment_choice"]')],
         slot: document.getElementById('pickup-slot'),
         phone: document.getElementById('phone'),
         name: document.getElementById('customer-name'),
@@ -15,6 +15,14 @@
         coupon: document.getElementById('coupon'),
         payment: document.getElementById('payment-method'),
         confirmation: document.getElementById('confirm-order'),
+        quoteCounty: document.getElementById('quote-county'),
+        quoteTown: document.getElementById('quote-town'),
+        quoteTownStatus: document.getElementById('quote-town-status'),
+        quoteTownRetry: document.getElementById('quote-town-retry'),
+        quoteCustomTownField: document.getElementById('quote-custom-town-field'),
+        quoteCustomTown: document.getElementById('quote-custom-town'),
+        quoteArea: document.getElementById('quote-area'),
+        quoteNotes: document.getElementById('quote-notes'),
     };
     const message = document.getElementById('checkout-message');
     const submit = document.getElementById('submit-checkout');
@@ -23,9 +31,15 @@
     let activeOrder = null;
     let guestToken = null;
     let quoteRequestVersion = 0;
+    let townRequestVersion = 0;
+    let townRequestController = null;
 
-    function selectedOrderType() {
-        return fields.orderTypes.find(field => field.checked)?.value || '';
+    function selectedFulfilment() {
+        return fields.fulfilmentChoices.find(field => field.checked)?.value || '';
+    }
+
+    function deliveryQuoteSelected() {
+        return selectedFulfilment() === 'DELIVERY_QUOTE';
     }
 
     function showNextActions(order) {
@@ -68,6 +82,8 @@
         const subtotal = Number(document.getElementById('summary-subtotal').textContent.replace(/[^0-9.]/g, '')) || 0;
         const delivery = Number(document.getElementById('summary-delivery').textContent.replace(/[^0-9.]/g, '')) || 0;
         document.getElementById('summary-discount').textContent = 'KES 0.00';
+        const productSaving = document.getElementById('summary-product-discount');
+        productSaving.textContent = `KES ${productSaving.dataset.initial || '0.00'}`;
         document.getElementById('summary-total').textContent = `KES ${(subtotal + delivery).toFixed(2)}`;
     }
 
@@ -76,6 +92,104 @@
         option.value = value;
         option.textContent = label;
         select.appendChild(option);
+    }
+
+    function humanizeLocationName(value) {
+        return String(value || '')
+            .trim()
+            .toLocaleLowerCase('en-KE')
+            .replace(/(^|[\s\-/])([a-z])/g, (_, boundary, letter) => `${boundary}${letter.toUpperCase()}`);
+    }
+
+    function showCustomTownField(show) {
+        fields.quoteCustomTownField.hidden = !show;
+        fields.quoteCustomTown.disabled = !show;
+        fields.quoteCustomTown.required = show;
+        if (!show) fields.quoteCustomTown.value = '';
+    }
+
+    function resetTownSelection(messageText = 'Select a county to see its listed cities and areas.') {
+        if (townRequestController) {
+            townRequestController.abort();
+            townRequestController = null;
+        }
+        townRequestVersion += 1;
+        fields.quoteTown.replaceChildren();
+        addOption(
+            fields.quoteTown,
+            '',
+            fields.quoteCounty.value ? 'Choose city / area' : 'Select a county first',
+        );
+        fields.quoteTown.value = '';
+        fields.quoteTown.disabled = true;
+        fields.quoteTownStatus.textContent = messageText;
+        fields.quoteTownRetry.hidden = true;
+        showCustomTownField(false);
+    }
+
+    function addUnlistedTownOption() {
+        addOption(fields.quoteTown, '__OTHER__', "My city / area isn't listed");
+    }
+
+    async function loadTownsForCounty(preferredTownId = '', preferredCustomTown = '') {
+        resetTownSelection();
+        const countyCode = fields.quoteCounty.value;
+        if (!countyCode || !deliveryQuoteSelected()) return;
+
+        const requestVersion = ++townRequestVersion;
+        townRequestController = new AbortController();
+        fields.quoteTown.replaceChildren();
+        addOption(fields.quoteTown, '', 'Loading cities and areas…');
+        fields.quoteTownStatus.textContent = 'Loading locations for the selected county…';
+        fields.quoteTownRetry.hidden = true;
+        submit.disabled = true;
+
+        try {
+            const url = new URL(form.dataset.townsUrl, window.location.origin);
+            url.searchParams.set('county', countyCode);
+            const response = await fetch(url, {
+                credentials: 'same-origin',
+                signal: townRequestController.signal,
+            });
+            const towns = await response.json().catch(() => null);
+            if (!response.ok || !Array.isArray(towns)) {
+                throw new Error('Town lookup failed.');
+            }
+            if (requestVersion !== townRequestVersion || countyCode !== fields.quoteCounty.value) return;
+
+            fields.quoteTown.replaceChildren();
+            addOption(fields.quoteTown, '', towns.length ? 'Select city / area' : 'No listed locations found');
+            towns.forEach(town => addOption(
+                fields.quoteTown,
+                String(town.id),
+                humanizeLocationName(town.name),
+            ));
+            addUnlistedTownOption();
+            fields.quoteTown.disabled = false;
+            submit.disabled = false;
+            fields.quoteTownRetry.hidden = true;
+            fields.quoteTownStatus.textContent = towns.length
+                ? 'Choose a listed city or area, or use the unlisted-area option.'
+                : 'No listed locations were found. Use the unlisted-area option to continue.';
+            if (preferredCustomTown) {
+                fields.quoteTown.value = '__OTHER__';
+                showCustomTownField(true);
+                fields.quoteCustomTown.value = preferredCustomTown;
+            } else if (preferredTownId && fields.quoteTown.querySelector(`option[value="${CSS.escape(String(preferredTownId))}"]`)) {
+                fields.quoteTown.value = String(preferredTownId);
+            }
+        } catch (error) {
+            if (error.name === 'AbortError' || requestVersion !== townRequestVersion) return;
+            fields.quoteTown.replaceChildren();
+            addOption(fields.quoteTown, '', 'Location list unavailable');
+            addUnlistedTownOption();
+            fields.quoteTown.disabled = false;
+            submit.disabled = false;
+            fields.quoteTownRetry.hidden = false;
+            fields.quoteTownStatus.textContent = 'We could not load the location list. Retry, or enter an unlisted city or area.';
+        } finally {
+            if (requestVersion === townRequestVersion) townRequestController = null;
+        }
     }
 
     function refreshOptions() {
@@ -89,18 +203,57 @@
     }
 
     function refreshFulfilmentFields() {
-        document.getElementById('summary-fulfilment').textContent = 'S18 pickup';
-        fields.slot.required = true;
+        const isQuote = deliveryQuoteSelected();
+        const pickupHasOptions = slots.some(
+            slot => String(slot.branch_id) === fields.branch.value,
+        );
+        document.getElementById('summary-fulfilment').textContent = isQuote ? 'Town parcel quote request' : 'S18 pickup';
+        document.getElementById('pickup-fields').classList.toggle('hidden', isQuote);
+        document.getElementById('delivery-quote-fields').classList.toggle('hidden', !isQuote);
+        document.getElementById('order-payment-fields').classList.toggle('hidden', isQuote);
+        document.getElementById('order-confirmation').classList.toggle('hidden', isQuote);
+        fields.slot.required = !isQuote;
+        fields.slot.disabled = isQuote || !pickupHasOptions;
+        fields.name.required = isQuote;
+        fields.quoteCounty.required = isQuote;
+        fields.quoteCounty.disabled = !isQuote;
+        fields.quoteTown.required = isQuote;
+        fields.quoteTown.disabled = true;
+        fields.quoteArea.disabled = !isQuote;
+        fields.quoteNotes.disabled = !isQuote;
+        fields.quoteArea.required = isQuote;
+        fields.payment.disabled = isQuote;
+        fields.coupon.disabled = isQuote;
+        fields.confirmation.required = !isQuote;
+        submit.textContent = isQuote ? 'Request delivery quote' : 'Confirm pickup order';
+        submit.disabled = !isQuote && !pickupHasOptions;
+        if (isQuote) {
+            fields.quoteCounty.value = form.dataset.savedCounty || '';
+            if (fields.quoteCounty.value) {
+                void loadTownsForCounty(
+                    form.dataset.savedTownId || '',
+                    form.dataset.savedCustomTown || '',
+                );
+            } else {
+                resetTownSelection();
+            }
+            document.getElementById('summary-delivery').textContent = 'Confirmed after review';
+            document.getElementById('summary-total').textContent = document.getElementById('summary-subtotal').textContent;
+        } else {
+            fields.quoteCounty.value = '';
+            resetTownSelection();
+            document.getElementById('summary-delivery').textContent = 'KES 0.00';
+        }
     }
 
     function quoteSelectionIsComplete() {
-        return selectedOrderType() === 'ONLINE_PICKUP' && Boolean(fields.slot.value);
+        return selectedFulfilment() === 'PICKUP' && Boolean(fields.slot.value);
     }
 
     function payload() {
         return {
             branch_id: fields.branch.value,
-            order_type: selectedOrderType(),
+            order_type: 'ONLINE_PICKUP',
             customer_phone: fields.phone.value.trim(),
             customer_name: fields.name.value.trim(),
             customer_email: fields.email.value.trim(),
@@ -113,6 +266,21 @@
         };
     }
 
+    function deliveryQuotePayload() {
+        const useCustomTown = fields.quoteTown.value === '__OTHER__';
+        return {
+            customer_phone: fields.phone.value.trim(),
+            customer_name: fields.name.value.trim(),
+            customer_email: fields.email.value.trim(),
+            county_code: fields.quoteCounty.value,
+            town_id: useCustomTown ? null : (fields.quoteTown.value || null),
+            use_custom_town: useCustomTown,
+            custom_town: useCustomTown ? fields.quoteCustomTown.value.trim() : '',
+            preferred_collection_area: fields.quoteArea.value.trim(),
+            notes: fields.quoteNotes.value.trim(),
+        };
+    }
+
     async function jsonRequest(url, body, extraHeaders = {}) {
         const response = await fetch(url, {
             method: 'POST',
@@ -122,7 +290,10 @@
         });
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-            const error = new Error(data.error || 'The request could not be completed.');
+            const message = response.status === 429
+                ? 'Too many attempts were made in a short time. Please wait a moment and try again.'
+                : (data.error || data.detail || 'The request could not be completed. Please refresh the page and try again.');
+            const error = new Error(message);
             error.payload = data;
             error.status = response.status;
             throw error;
@@ -135,6 +306,7 @@
         const quote = await jsonRequest('/api/checkout/preview/', payload());
         if (requestVersion !== quoteRequestVersion) return quote;
         document.getElementById('summary-subtotal').textContent = `KES ${quote.subtotal}`;
+        document.getElementById('summary-product-discount').textContent = `KES ${quote.product_discount_amount || '0.00'}`;
         document.getElementById('summary-discount').textContent = `KES ${quote.discount_amount}`;
         document.getElementById('summary-delivery').textContent = `KES ${quote.delivery_fee}`;
         document.getElementById('summary-total').textContent = `KES ${quote.total_payable}`;
@@ -180,11 +352,32 @@
         refreshOptions();
         fields.confirmation.checked = false;
     });
-    fields.orderTypes.forEach(field => field.addEventListener('change', async () => {
+    fields.quoteCounty.addEventListener('change', () => {
+        void loadTownsForCounty();
+    });
+    fields.quoteTown.addEventListener('change', () => {
+        showCustomTownField(fields.quoteTown.value === '__OTHER__');
+    });
+    fields.quoteTownRetry.addEventListener('click', () => {
+        void loadTownsForCounty();
+    });
+    window.addEventListener('shopper-location-saved', event => {
+        const location = event.detail || {};
+        form.dataset.savedCounty = location.county_code || '';
+        form.dataset.savedTownId = location.town_id || '';
+        form.dataset.savedCustomTown = location.use_custom_town ? (location.town_name || '') : '';
+        if (deliveryQuoteSelected()) {
+            fields.quoteCounty.value = form.dataset.savedCounty;
+            void loadTownsForCounty(
+                form.dataset.savedTownId,
+                form.dataset.savedCustomTown,
+            );
+        }
+    });
+    fields.fulfilmentChoices.forEach(field => field.addEventListener('change', async () => {
         refreshFulfilmentFields();
         fields.confirmation.checked = false;
         clearCouponFeedback();
-        document.getElementById('summary-delivery').textContent = 'KES 0.00';
         resetDisplayedDiscount();
         if (quoteSelectionIsComplete()) {
             try { await reviewTotal({announce: false}); } catch (error) { setMessage(error.message, 'error'); }
@@ -221,6 +414,23 @@
         if (!form.reportValidity()) return;
         submit.disabled = true;
         fallbackForm.classList.add('hidden');
+        if (deliveryQuoteSelected()) {
+            if (fields.quoteTown.disabled) {
+                setMessage('Wait for the location list to finish loading, then choose your city or area.', 'error');
+                submit.disabled = false;
+                return;
+            }
+            setMessage('Sending your delivery quote request…');
+            try {
+                const quote = await jsonRequest('/api/checkout/delivery-quotes/', deliveryQuotePayload());
+                const token = quote.access_token ? `#${quote.access_token}` : '';
+                window.location.assign(`${quote.status_url}${token}`);
+            } catch (error) {
+                setMessage(error.message, 'error');
+                submit.disabled = false;
+            }
+            return;
+        }
         setMessage('Checking stock, prices and your final amount…');
         try {
             await reviewTotal({announce: false});
@@ -237,6 +447,7 @@
 
             if (order.next_step !== 'initiate_payment') {
                 setMessage(`Order ${activeOrder} is confirmed. Payment will be collected during fulfilment.`, 'success');
+                window.location.assign(order.tracking_url);
                 return;
             }
 
@@ -247,8 +458,8 @@
                     phone: fields.phone.value.trim(),
                     access_token: guestToken,
                 });
-                setMessage(`${payment.message} We are waiting for payment confirmation.`, 'pending');
-                void pollOrderStatus(activeOrder, guestToken);
+                setMessage(`${payment.message} Opening your live order status…`, 'pending');
+                window.location.assign(order.tracking_url);
             } catch (error) {
                 if (error.payload && error.payload.fallback) {
                     setMessage(error.payload.message, 'pending');
@@ -280,6 +491,6 @@
         }
     });
 
-    refreshFulfilmentFields();
     refreshOptions();
+    refreshFulfilmentFields();
 })();
