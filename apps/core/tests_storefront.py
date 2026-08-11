@@ -181,6 +181,41 @@ class StorefrontCatalogTests(TestCase):
         self.assertContains(response, 'Choose options')
         self.assertNotContains(response, 'Add to cart')
 
+    def test_variant_listing_ignores_inactive_and_obsolete_direct_stock(self):
+        shirt = Product.objects.create(
+            name='Sold Out Choice Shirt', slug='sold-out-choice-shirt',
+            category=self.child, price=Decimal('900.00'),
+            status=Product.Status.ACTIVE,
+        )
+        active_variant = ProductVariant.objects.create(
+            product=shirt, attribute_name='Size', attribute_value='Medium',
+            is_active=True,
+        )
+        inactive_variant = ProductVariant.objects.create(
+            product=shirt, attribute_name='Size', attribute_value='Large',
+            is_active=False,
+        )
+        Stock.objects.create(
+            branch=self.branch_a, variant=active_variant, quantity=0,
+        )
+        Stock.objects.create(
+            branch=self.branch_a, variant=inactive_variant, quantity=9,
+        )
+        Stock.objects.create(
+            branch=self.branch_a, product=shirt, quantity=7,
+        )
+
+        response = self.client.get(reverse('core:catalog_filter_engine'), {
+            'search': shirt.name,
+        })
+
+        self.assertContains(response, shirt.name)
+        self.assertContains(response, 'Out of stock')
+        self.assertNotContains(response, '>In stock<')
+        listed = response.context['products'][0]
+        self.assertTrue(listed.has_active_variants)
+        self.assertEqual(listed.available_stock, 0)
+
     def test_home_uses_customer_facing_copy_and_exposes_filters(self):
         response = self.client.get(reverse('core:storefront_home'))
         self.assertContains(response, 'Quality finds. Fair value. Shop with confidence.')

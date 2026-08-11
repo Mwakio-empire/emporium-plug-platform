@@ -1,7 +1,10 @@
 from decimal import Decimal, InvalidOperation
 from datetime import timedelta
 
-from django.db.models import F, IntegerField, OuterRef, Q, Subquery, Sum, Value
+from django.db.models import (
+    BooleanField, Case, Exists, F, IntegerField, OuterRef, Q, Subquery, Sum,
+    Value, When,
+)
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -76,7 +79,9 @@ def _available_stock_subqueries(branch_id=None):
     direct = Stock.objects.filter(
         product=OuterRef('pk'), variant__isnull=True,
     )
-    variants = Stock.objects.filter(variant__product=OuterRef('pk'))
+    variants = Stock.objects.filter(
+        variant__product=OuterRef('pk'), variant__is_active=True,
+    )
     if branch_id is not None:
         direct = direct.filter(branch_id=branch_id)
         variants = variants.filter(branch_id=branch_id)
@@ -91,6 +96,9 @@ def _available_stock_subqueries(branch_id=None):
 
 def public_products(branch_id=None):
     direct, variants = _available_stock_subqueries(branch_id)
+    active_variants = Product.objects.filter(
+        pk=OuterRef('pk'), variants__is_active=True,
+    )
     return Product.objects.filter(
         status=Product.Status.ACTIVE,
         category_id__in=public_visible_category_ids(),
@@ -101,8 +109,18 @@ def public_products(branch_id=None):
         variant_available=Coalesce(
             Subquery(variants, output_field=IntegerField()), Value(0),
         ),
+        has_active_variants=Exists(
+            active_variants, output_field=BooleanField(),
+        ),
     ).annotate(
-        available_stock=F('direct_available') + F('variant_available'),
+        # A product with active variants is sellable only through those
+        # variants. Ignore obsolete direct stock and inactive-variant stock so
+        # listing availability matches the product-detail selector.
+        available_stock=Case(
+            When(has_active_variants=True, then=F('variant_available')),
+            default=F('direct_available'),
+            output_field=IntegerField(),
+        ),
     )
 
 

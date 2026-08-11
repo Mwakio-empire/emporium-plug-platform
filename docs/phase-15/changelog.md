@@ -13,6 +13,10 @@
 - Replaced public exact inventory quantities with `In stock`, `Low stock - order
   soon` and `Out of stock` states. Exact quantities remain available to internal
   inventory and ordering logic.
+- Aligned catalogue cards with product-detail availability: products with active
+  variants now count only active-variant stock, ignoring inactive variants and
+  obsolete direct-product stock. Versioned product-page JavaScript prevents an
+  older cached option selector from showing contradictory availability.
 
 ## 2026-08-09 - Storefront variant selector polish
 
