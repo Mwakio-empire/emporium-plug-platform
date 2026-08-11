@@ -73,9 +73,8 @@ class DeliveryQuoteService:
     @classmethod
     @transaction.atomic
     def create_request(
-        cls, *, request, branch, customer_name, customer_phone, county_code,
-        preferred_collection_area, town_id=None, use_custom_town=False,
-        custom_town='', customer_email='', notes='', now=None,
+        cls, *, request, branch, customer_name, customer_phone, county, town,
+        preferred_collection_area, customer_email='', notes='', now=None,
     ):
         cart = UnifiedSessionCartService(request)
         if cart.is_empty():
@@ -85,11 +84,9 @@ class DeliveryQuoteService:
         stock_check = cart.revalidate_stock(branch=branch)
         if not stock_check['valid']:
             raise ValidationError('Some cart quantities are no longer available. Review your cart and try again.')
-        destination = TownSelectionService.resolve(
-            county_code=county_code,
-            town_id=town_id,
-            use_custom_town=use_custom_town,
-            custom_town=custom_town,
+        destination = TownSelectionService.resolve_free_text(
+            county=county,
+            town=town,
         )
         name = str(customer_name or '').strip()
         county_name = destination.county_name

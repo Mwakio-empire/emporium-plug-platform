@@ -1,5 +1,17 @@
 # Change log
 
+## 2026-08-11 - Simpler destination entry and stock privacy
+
+- Removed the global shopping-location prompt so customers can browse without
+  supplying a destination.
+- Replaced the dependent county/town checkout selectors with typed county, town
+  and collection-area fields. County names are still validated against the
+  active Kenyan county reference; staff still verifies the route, operator,
+  collection point and fee before payment.
+- Replaced public exact inventory quantities with `In stock`, `Low stock - order
+  soon` and `Out of stock` states. Exact quantities remain available to internal
+  inventory and ordering logic.
+
 ## 2026-08-09 - Storefront variant selector polish
 
 - Replaced the plain product-option controls with compact size chips and true
@@ -22,6 +34,8 @@
 - The validated selection is stored in the shopper session and prefills the town-parcel quote fields at checkout.
 - Added an explicit unlisted-area fallback and retained staff verification of the operator, collection point and transport price.
 - Selecting a shopping location does not create an order, reserve stock or promise a transport route.
+- Superseded on 2026-08-11 by checkout-only typed destination entry after client
+  review found the browsing prompt and dependent selectors unnecessarily complex.
 
 ## 2026-08-01
 

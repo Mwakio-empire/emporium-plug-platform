@@ -106,10 +106,8 @@ class DeliveryQuoteCreateView(APIView):
                 customer_name=request.data.get('customer_name'),
                 customer_phone=request.data.get('customer_phone'),
                 customer_email=request.data.get('customer_email'),
-                county_code=request.data.get('county_code'),
-                town_id=request.data.get('town_id'),
-                use_custom_town=request.data.get('use_custom_town') is True,
-                custom_town=request.data.get('custom_town', ''),
+                county=request.data.get('county'),
+                town=request.data.get('town'),
                 preferred_collection_area=request.data.get('preferred_collection_area'),
                 notes=request.data.get('notes'),
             )

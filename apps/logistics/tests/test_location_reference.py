@@ -192,6 +192,26 @@ class TownSelectionServiceTests(TestCase):
         self.assertEqual(selection.county_name, 'Kakamega Test')
         self.assertEqual(selection.town_name, 'Kakamega')
 
+    def test_free_text_resolver_accepts_county_suffix_and_normalizes_town(self):
+        from logistics.location_services import TownSelectionService
+
+        selection = TownSelectionService.resolve_free_text(
+            county='  Kakamega Test County  ',
+            town='  Shinyalu   Centre  ',
+        )
+
+        self.assertEqual(selection.county_name, 'Kakamega Test')
+        self.assertEqual(selection.town_name, 'Shinyalu Centre')
+
+    def test_free_text_resolver_rejects_unknown_county(self):
+        from logistics.location_services import TownSelectionService
+
+        with self.assertRaisesMessage(ValidationError, "Kenya's 47 counties"):
+            TownSelectionService.resolve_free_text(
+                county='Imaginary County',
+                town='Somewhere',
+            )
+
     def test_resolver_normalizes_explicit_custom_town(self):
         selection = self.resolve(
             town_id=None,

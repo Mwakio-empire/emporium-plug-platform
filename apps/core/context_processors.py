@@ -3,9 +3,6 @@ from urllib.parse import quote
 from django.conf import settings
 from django.templatetags.static import static
 
-from .location_preferences import shopper_location_context
-
-
 def build_whatsapp_url(message):
     phone = str(getattr(settings, 'WHATSAPP_ORDER_PHONE', '') or '').strip()
     digits = ''.join(character for character in phone if character.isdigit())
@@ -64,5 +61,4 @@ def business_contact(request):
         'organization_schema': organization_schema,
         'store_logo_url': store_logo_url,
     }
-    context.update(shopper_location_context(request))
     return context

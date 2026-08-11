@@ -40,6 +40,38 @@ class TownSelectionService:
     """Resolve a listed or explicitly custom town against active reference data."""
 
     @staticmethod
+    def resolve_free_text(*, county: str, town: str) -> ResolvedTownSelection:
+        """Canonicalize a typed Kenyan county while preserving a typed town."""
+        try:
+            county_name = KenyaTown.normalize_name(county)
+            town_name = KenyaTown.normalize_name(town)
+        except ValidationError as exc:
+            raise ValidationError('Location details contain unsupported characters.') from exc
+        if county_name.casefold().endswith(' county'):
+            county_name = county_name[:-7].strip()
+        if not county_name:
+            raise ValidationError('Enter the destination county.')
+        if not town_name:
+            raise ValidationError('Enter the destination town or city.')
+        if len(county_name) > KenyaCounty._meta.get_field('name').max_length:
+            raise ValidationError('County name must be 80 characters or fewer.')
+        if len(town_name) > KenyaTown._meta.get_field('name').max_length:
+            raise ValidationError('Town or city must be 100 characters or fewer.')
+        try:
+            matched_county = KenyaCounty.objects.get(
+                name__iexact=county_name,
+                is_active=True,
+            )
+        except KenyaCounty.DoesNotExist as exc:
+            raise ValidationError(
+                'Enter one of Kenya\'s 47 counties, for example Kakamega or Nairobi.'
+            ) from exc
+        return ResolvedTownSelection(
+            county_name=matched_county.name.title(),
+            town_name=town_name,
+        )
+
+    @staticmethod
     def resolve(
         *,
         county_code: str,

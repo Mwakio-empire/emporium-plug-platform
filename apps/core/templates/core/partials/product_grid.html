@@ -11,7 +11,7 @@
       <p class="mt-1 hidden text-xs text-slate-500 sm:line-clamp-2">{{ product.description|default:"Product details available on the product page." }}</p>
       <div class="mt-auto pt-2">
         <p class="text-sm font-black text-slate-950 sm:text-base">KES {{ product.price }}</p>
-        {% if product.available_stock > 0 %}<p class="mt-0.5 text-[10px] font-semibold text-emerald-700">In stock</p>{% else %}<p class="mt-0.5 text-[10px] font-semibold text-rose-700">Out of stock</p>{% endif %}
+        {% with stock_status=product|storefront_stock_status %}{% if stock_status == 'LOW_STOCK' %}<p class="mt-0.5 text-[10px] font-semibold text-amber-700">Low stock - order soon</p>{% elif stock_status == 'IN_STOCK' %}<p class="mt-0.5 text-[10px] font-semibold text-emerald-700">In stock</p>{% else %}<p class="mt-0.5 text-[10px] font-semibold text-rose-700">Out of stock</p>{% endif %}{% endwith %}
         {% if product.variants.exists %}
           <a href="{% url 'core:product_detail' product.slug %}" class="mt-2 block rounded-lg bg-slate-950 px-2 py-2 text-center text-xs font-bold text-white hover:bg-slate-800">Choose options</a>
         {% elif product.available_stock > 0 %}

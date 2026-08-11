@@ -17,10 +17,6 @@
         confirmation: document.getElementById('confirm-order'),
         quoteCounty: document.getElementById('quote-county'),
         quoteTown: document.getElementById('quote-town'),
-        quoteTownStatus: document.getElementById('quote-town-status'),
-        quoteTownRetry: document.getElementById('quote-town-retry'),
-        quoteCustomTownField: document.getElementById('quote-custom-town-field'),
-        quoteCustomTown: document.getElementById('quote-custom-town'),
         quoteArea: document.getElementById('quote-area'),
         quoteNotes: document.getElementById('quote-notes'),
     };
@@ -31,8 +27,6 @@
     let activeOrder = null;
     let guestToken = null;
     let quoteRequestVersion = 0;
-    let townRequestVersion = 0;
-    let townRequestController = null;
 
     function selectedFulfilment() {
         return fields.fulfilmentChoices.find(field => field.checked)?.value || '';
@@ -94,104 +88,6 @@
         select.appendChild(option);
     }
 
-    function humanizeLocationName(value) {
-        return String(value || '')
-            .trim()
-            .toLocaleLowerCase('en-KE')
-            .replace(/(^|[\s\-/])([a-z])/g, (_, boundary, letter) => `${boundary}${letter.toUpperCase()}`);
-    }
-
-    function showCustomTownField(show) {
-        fields.quoteCustomTownField.hidden = !show;
-        fields.quoteCustomTown.disabled = !show;
-        fields.quoteCustomTown.required = show;
-        if (!show) fields.quoteCustomTown.value = '';
-    }
-
-    function resetTownSelection(messageText = 'Select a county to see its listed cities and areas.') {
-        if (townRequestController) {
-            townRequestController.abort();
-            townRequestController = null;
-        }
-        townRequestVersion += 1;
-        fields.quoteTown.replaceChildren();
-        addOption(
-            fields.quoteTown,
-            '',
-            fields.quoteCounty.value ? 'Choose city / area' : 'Select a county first',
-        );
-        fields.quoteTown.value = '';
-        fields.quoteTown.disabled = true;
-        fields.quoteTownStatus.textContent = messageText;
-        fields.quoteTownRetry.hidden = true;
-        showCustomTownField(false);
-    }
-
-    function addUnlistedTownOption() {
-        addOption(fields.quoteTown, '__OTHER__', "My city / area isn't listed");
-    }
-
-    async function loadTownsForCounty(preferredTownId = '', preferredCustomTown = '') {
-        resetTownSelection();
-        const countyCode = fields.quoteCounty.value;
-        if (!countyCode || !deliveryQuoteSelected()) return;
-
-        const requestVersion = ++townRequestVersion;
-        townRequestController = new AbortController();
-        fields.quoteTown.replaceChildren();
-        addOption(fields.quoteTown, '', 'Loading cities and areas…');
-        fields.quoteTownStatus.textContent = 'Loading locations for the selected county…';
-        fields.quoteTownRetry.hidden = true;
-        submit.disabled = true;
-
-        try {
-            const url = new URL(form.dataset.townsUrl, window.location.origin);
-            url.searchParams.set('county', countyCode);
-            const response = await fetch(url, {
-                credentials: 'same-origin',
-                signal: townRequestController.signal,
-            });
-            const towns = await response.json().catch(() => null);
-            if (!response.ok || !Array.isArray(towns)) {
-                throw new Error('Town lookup failed.');
-            }
-            if (requestVersion !== townRequestVersion || countyCode !== fields.quoteCounty.value) return;
-
-            fields.quoteTown.replaceChildren();
-            addOption(fields.quoteTown, '', towns.length ? 'Select city / area' : 'No listed locations found');
-            towns.forEach(town => addOption(
-                fields.quoteTown,
-                String(town.id),
-                humanizeLocationName(town.name),
-            ));
-            addUnlistedTownOption();
-            fields.quoteTown.disabled = false;
-            submit.disabled = false;
-            fields.quoteTownRetry.hidden = true;
-            fields.quoteTownStatus.textContent = towns.length
-                ? 'Choose a listed city or area, or use the unlisted-area option.'
-                : 'No listed locations were found. Use the unlisted-area option to continue.';
-            if (preferredCustomTown) {
-                fields.quoteTown.value = '__OTHER__';
-                showCustomTownField(true);
-                fields.quoteCustomTown.value = preferredCustomTown;
-            } else if (preferredTownId && fields.quoteTown.querySelector(`option[value="${CSS.escape(String(preferredTownId))}"]`)) {
-                fields.quoteTown.value = String(preferredTownId);
-            }
-        } catch (error) {
-            if (error.name === 'AbortError' || requestVersion !== townRequestVersion) return;
-            fields.quoteTown.replaceChildren();
-            addOption(fields.quoteTown, '', 'Location list unavailable');
-            addUnlistedTownOption();
-            fields.quoteTown.disabled = false;
-            submit.disabled = false;
-            fields.quoteTownRetry.hidden = false;
-            fields.quoteTownStatus.textContent = 'We could not load the location list. Retry, or enter an unlisted city or area.';
-        } finally {
-            if (requestVersion === townRequestVersion) townRequestController = null;
-        }
-    }
-
     function refreshOptions() {
         fields.slot.replaceChildren();
         addOption(fields.slot, '', 'Select a pickup arrangement');
@@ -218,7 +114,7 @@
         fields.quoteCounty.required = isQuote;
         fields.quoteCounty.disabled = !isQuote;
         fields.quoteTown.required = isQuote;
-        fields.quoteTown.disabled = true;
+        fields.quoteTown.disabled = !isQuote;
         fields.quoteArea.disabled = !isQuote;
         fields.quoteNotes.disabled = !isQuote;
         fields.quoteArea.required = isQuote;
@@ -228,20 +124,9 @@
         submit.textContent = isQuote ? 'Request delivery quote' : 'Confirm pickup order';
         submit.disabled = !isQuote && !pickupHasOptions;
         if (isQuote) {
-            fields.quoteCounty.value = form.dataset.savedCounty || '';
-            if (fields.quoteCounty.value) {
-                void loadTownsForCounty(
-                    form.dataset.savedTownId || '',
-                    form.dataset.savedCustomTown || '',
-                );
-            } else {
-                resetTownSelection();
-            }
             document.getElementById('summary-delivery').textContent = 'Confirmed after review';
             document.getElementById('summary-total').textContent = document.getElementById('summary-subtotal').textContent;
         } else {
-            fields.quoteCounty.value = '';
-            resetTownSelection();
             document.getElementById('summary-delivery').textContent = 'KES 0.00';
         }
     }
@@ -267,15 +152,12 @@
     }
 
     function deliveryQuotePayload() {
-        const useCustomTown = fields.quoteTown.value === '__OTHER__';
         return {
             customer_phone: fields.phone.value.trim(),
             customer_name: fields.name.value.trim(),
             customer_email: fields.email.value.trim(),
-            county_code: fields.quoteCounty.value,
-            town_id: useCustomTown ? null : (fields.quoteTown.value || null),
-            use_custom_town: useCustomTown,
-            custom_town: useCustomTown ? fields.quoteCustomTown.value.trim() : '',
+            county: fields.quoteCounty.value.trim(),
+            town: fields.quoteTown.value.trim(),
             preferred_collection_area: fields.quoteArea.value.trim(),
             notes: fields.quoteNotes.value.trim(),
         };
@@ -352,28 +234,6 @@
         refreshOptions();
         fields.confirmation.checked = false;
     });
-    fields.quoteCounty.addEventListener('change', () => {
-        void loadTownsForCounty();
-    });
-    fields.quoteTown.addEventListener('change', () => {
-        showCustomTownField(fields.quoteTown.value === '__OTHER__');
-    });
-    fields.quoteTownRetry.addEventListener('click', () => {
-        void loadTownsForCounty();
-    });
-    window.addEventListener('shopper-location-saved', event => {
-        const location = event.detail || {};
-        form.dataset.savedCounty = location.county_code || '';
-        form.dataset.savedTownId = location.town_id || '';
-        form.dataset.savedCustomTown = location.use_custom_town ? (location.town_name || '') : '';
-        if (deliveryQuoteSelected()) {
-            fields.quoteCounty.value = form.dataset.savedCounty;
-            void loadTownsForCounty(
-                form.dataset.savedTownId,
-                form.dataset.savedCustomTown,
-            );
-        }
-    });
     fields.fulfilmentChoices.forEach(field => field.addEventListener('change', async () => {
         refreshFulfilmentFields();
         fields.confirmation.checked = false;
@@ -415,11 +275,6 @@
         submit.disabled = true;
         fallbackForm.classList.add('hidden');
         if (deliveryQuoteSelected()) {
-            if (fields.quoteTown.disabled) {
-                setMessage('Wait for the location list to finish loading, then choose your city or area.', 'error');
-                submit.disabled = false;
-                return;
-            }
             setMessage('Sending your delivery quote request…');
             try {
                 const quote = await jsonRequest('/api/checkout/delivery-quotes/', deliveryQuotePayload());

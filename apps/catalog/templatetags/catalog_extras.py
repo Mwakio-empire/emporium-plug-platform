@@ -4,8 +4,19 @@ from django import template
 from django.core.serializers.json import DjangoJSONEncoder
 from django.utils.safestring import mark_safe
 
+from catalog.stock_presentation import public_stock_status
+
 
 register = template.Library()
+
+
+@register.filter
+def storefront_stock_status(product):
+    """Return the privacy-safe public stock state for an annotated product."""
+    return public_stock_status(
+        getattr(product, 'available_stock', 0),
+        getattr(product, 'low_stock_threshold', 0),
+    )
 
 
 @register.filter

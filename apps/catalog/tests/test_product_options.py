@@ -93,6 +93,10 @@ class ProductOptionCombinationTests(TestCase):
         self.assertContains(response, 'Black')
         self.assertContains(response, 'variant-matrix-data')
         self.assertContains(response, variants[0].sku)
+        matrix = response.context['variant_matrix']
+        self.assertTrue(all(item['available'] for item in matrix))
+        self.assertTrue(all('stock' not in item for item in matrix))
+        self.assertNotContains(response, '5 available')
 
     def test_variant_matrix_includes_sale_and_regular_prices(self):
         variants = generate_missing_combinations(self.product.pk)

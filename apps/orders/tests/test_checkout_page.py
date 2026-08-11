@@ -73,7 +73,7 @@ class CheckoutPageTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, 'Review and confirm your order')
 
-    def test_checkout_defaults_to_s18_pickup_and_offers_structured_delivery_quote(self):
+    def test_checkout_defaults_to_s18_pickup_and_offers_delivery_quote(self):
         self._add_cart_with_pickup()
 
         response = self.client.get(reverse('checkout-page'))
@@ -86,8 +86,10 @@ class CheckoutPageTests(TestCase):
         self.assertContains(response, 'No order or stock reservation yet')
         self.assertContains(response, 'id="delivery-quote-fields"')
         self.assertContains(response, '/static/orders/checkout.js')
+        self.assertNotContains(response, 'aria-label="Order through WhatsApp"')
+        self.assertContains(response, 'Need immediate help? Contact us on WhatsApp')
 
-    def test_delivery_quote_uses_active_county_and_dependent_town_selects(self):
+    def test_delivery_quote_uses_simple_typed_destination_fields(self):
         self._add_cart_with_pickup()
         KenyaCounty.objects.filter(code='37').update(name='KAKAMEGA', is_active=True)
         KenyaCounty.objects.filter(code='38').update(name='VIHIGA', is_active=False)
@@ -95,24 +97,15 @@ class CheckoutPageTests(TestCase):
         response = self.client.get(reverse('checkout-page'))
 
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, '<select id="quote-county"')
-        self.assertContains(response, '<option value="37">Kakamega</option>')
+        self.assertContains(response, '<input id="quote-county"')
+        self.assertContains(response, '<option value="Kakamega"></option>')
         self.assertNotContains(response, 'Vihiga')
-        self.assertContains(response, '<select id="quote-town"')
-        self.assertContains(response, 'name="town_id" required disabled')
-        self.assertContains(response, 'aria-describedby="quote-town-status"')
-        self.assertContains(response, 'Select a county first')
-        self.assertContains(response, 'id="quote-town-status"')
-        self.assertContains(response, 'aria-live="polite"')
-        self.assertContains(
-            response,
-            'id="quote-town-retry" type="button" hidden',
-        )
-        self.assertContains(response, 'Retry loading locations')
-        self.assertContains(response, 'id="quote-custom-town-field" hidden')
-        self.assertContains(response, 'id="quote-custom-town"')
-        self.assertContains(response, "My city / area isn't listed")
-        self.assertContains(response, 'data-towns-url="/api/logistics/towns/"')
+        self.assertContains(response, '<input id="quote-town"')
+        self.assertContains(response, 'name="town" required disabled')
+        self.assertContains(response, 'Preferred collection area or landmark')
+        self.assertContains(response, 'Type the location in your own words.')
+        self.assertNotContains(response, 'quote-town-retry')
+        self.assertNotContains(response, 'data-towns-url')
         self.assertContains(response, 'value="PICKUP" required checked')
 
     def test_customer_name_help_is_accurate_for_pickup_and_delivery_quote(self):
@@ -126,25 +119,13 @@ class CheckoutPageTests(TestCase):
             'Optional for S18 pickup; required for a town delivery quote.',
         )
 
-    def test_saved_shopping_location_is_available_to_prefill_delivery_quote(self):
+    def test_checkout_does_not_depend_on_a_saved_browsing_location(self):
         self._add_cart_with_pickup()
-        county = KenyaCounty.objects.get(code='37')
-        town = county.towns.filter(is_active=True).first()
-        session = self.client.session
-        session['shopper_location'] = {
-            'county_code': county.code,
-            'county_name': county.name,
-            'town_id': town.pk,
-            'town_name': town.name,
-            'use_custom_town': False,
-        }
-        session.save()
-
         response = self.client.get(reverse('checkout-page'))
 
-        self.assertContains(response, f'data-saved-county="{county.code}"')
-        self.assertContains(response, f'data-saved-town-id="{town.pk}"')
-        self.assertContains(response, 'City / area')
+        self.assertNotContains(response, 'data-saved-county')
+        self.assertNotContains(response, 'data-saved-town-id')
+        self.assertContains(response, 'Town or city')
 
     def test_tracking_page_is_a_data_free_shell(self):
         response = self.client.get(

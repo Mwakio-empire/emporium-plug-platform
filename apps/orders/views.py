@@ -123,6 +123,7 @@ class CheckoutPageView(UserPassesTestMixin, TemplateView):
             ),
             'pickup_slots': pickup_slots,
             'delivery_whatsapp_url': build_whatsapp_url(delivery_message),
+            'hide_global_whatsapp': True,
             'checkout_idempotency_key': str(uuid.uuid4()),
             'customer_phone': (
                 str(self.request.user.phone_number)

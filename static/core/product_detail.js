@@ -141,7 +141,7 @@
             });
         });
 
-        const initial = variants.find(variant => variant.stock > 0) || variants[0];
+        const initial = variants.find(variant => variant.available) || variants[0];
         if (!initial) return;
         initial.values.forEach(valueId => selected.set(valueToGroup.get(Number(valueId)), Number(valueId)));
 
@@ -187,21 +187,24 @@
                 regularPrice.textContent = `KES ${variant.regular_price}`;
                 regularPrice.classList.toggle("hidden", !variant.on_sale);
             }
-            quantity.max = Math.max(variant.stock, 1);
-            if (Number.parseInt(quantity.value, 10) > variant.stock) quantity.value = variant.stock || 1;
-            const available = variant.stock > 0;
+            quantity.removeAttribute("max");
+            const available = variant.available;
             quantity.disabled = !available;
             restockPanel?.classList.toggle("hidden", available);
-            stockNote.textContent = available ? "In stock and ready to order" : "This combination is currently sold out";
-            stockNote.className = available
-                ? "text-xs text-emerald-600 font-semibold"
-                : "text-xs text-rose-600 font-semibold";
+            stockNote.textContent = !available
+                ? "Out of stock"
+                : (variant.low_stock ? "Low stock - order soon" : "In stock");
+            stockNote.className = !available
+                ? "text-xs text-rose-600 font-semibold"
+                : (variant.low_stock
+                    ? "text-xs text-amber-700 font-semibold"
+                    : "text-xs text-emerald-600 font-semibold");
             button.disabled = !available;
             button.textContent = available ? "Add to cart" : "Out of stock";
             message.dataset.state = available ? "available" : "sold-out";
-            messageText.textContent = available
-                ? `${variant.stock} available across our shops.`
-                : "Choose another combination to continue.";
+            messageText.textContent = !available
+                ? "Choose another combination to continue."
+                : (variant.low_stock ? "Low stock - order soon." : "In stock.");
             if (sku) sku.textContent = `SKU: ${variant.sku}`;
             renderGallery(variant.media);
             updateCountdown(variant.flash_end);
@@ -233,7 +236,7 @@
                             variant.values.includes(valueId) && matchesSelection(variant, groupId)
                         ));
                         const exists = compatible.length > 0;
-                        const hasStock = compatible.some(variant => variant.stock > 0);
+                        const hasStock = compatible.some(variant => variant.available);
                         control.disabled = !exists;
                         control.setAttribute("aria-pressed", String(isSelected));
                         control.dataset.selected = String(isSelected);

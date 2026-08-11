@@ -27,22 +27,6 @@
     max-width: 30rem;
   }
 
-  .shopper-location-dialog {
-    width: min(92vw, 32rem);
-    max-height: min(88vh, 46rem);
-    overflow-y: auto;
-  }
-
-  @media (max-width: 639px) {
-    .shopper-location-dialog {
-      width: 100%;
-      max-width: none;
-      max-height: 88vh;
-      margin: auto 0 0;
-      border-radius: 1.25rem 1.25rem 0 0;
-    }
-  }
-
   .cancel-order-confirm {
     background-color: #b91c1c;
   }

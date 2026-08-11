@@ -285,7 +285,10 @@ class AddToCartTests(CartTestDataMixin, TestCase):
 
         self.assertTrue(data['success'])
         self.assertIn('warning', data)
-        self.assertIn('capped', data['warning'])
+        self.assertEqual(
+            data['warning'],
+            'Quantity reduced to what is currently available.',
+        )
 
         detail_response = self.client.get(reverse('cart:detail'))
         detail_data = detail_response.json()

@@ -437,7 +437,7 @@ class UnifiedSessionCartService:
             self._save()
             return {
                 'success': True,
-                'warning': f"Quantity capped at available stock ({total_stock} units).",
+                'warning': 'Quantity reduced to what is currently available.',
             }
 
         if self.cart[key]['quantity'] <= 0:
@@ -523,7 +523,7 @@ class UnifiedSessionCartService:
             self._save()
             return {
                 'success': True,
-                'warning': f"Quantity capped at available stock ({total_stock} units).",
+                'warning': 'Quantity reduced to what is currently available.',
             }
 
         if self.cart[key]['quantity'] <= 0:

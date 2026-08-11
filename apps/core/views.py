@@ -27,6 +27,7 @@ from core.services import HighPerformanceOptimizationService
 from catalog.models import Product, Category, ProductVariant, WishlistItem, RestockSubscription
 from catalog.restock_services import create_restock_subscription, cancel_restock_subscription
 from catalog.media_services import product_media as build_product_media, variant_media as build_variant_media
+from catalog.stock_presentation import public_stock_status
 from catalog.wishlist_services import toggle_wishlist_product, wishlist_product_ids
 from catalog.storefront import (
     apply_storefront_filters,
@@ -38,47 +39,10 @@ from marketing.services import FeedbackService
 from orders.services import POSSalesService
 from orders.models import Order
 from inventory.models import Stock
-from logistics.location_services import TownSelectionService
-from core.location_preferences import (
-    SHOPPER_LOCATION_SESSION_KEY,
-    human_location_label,
-)
 
   
 User = get_user_model()
 logger = logging.getLogger(__name__)
-
-
-class ShopperLocationPreferenceView(View):
-    """Validate and remember a shopper's browsing destination in their session."""
-
-    def post(self, request):
-        use_custom_town = request.POST.get('use_custom_town') == 'true'
-        try:
-            resolved = TownSelectionService.resolve(
-                county_code=request.POST.get('county_code', ''),
-                town_id=request.POST.get('town_id') or None,
-                use_custom_town=use_custom_town,
-                custom_town=request.POST.get('custom_town', ''),
-            )
-        except ValidationError as exc:
-            return JsonResponse({'error': exc.messages[0]}, status=400)
-
-        town_id = None if use_custom_town else int(request.POST['town_id'])
-        saved = {
-            'county_code': str(request.POST['county_code']).strip(),
-            'county_name': human_location_label(resolved.county_name),
-            'town_id': town_id,
-            'town_name': human_location_label(resolved.town_name),
-            'use_custom_town': use_custom_town,
-        }
-        request.session[SHOPPER_LOCATION_SESSION_KEY] = saved
-        request.session.modified = True
-        return JsonResponse({
-            'message': 'Shopping location saved.',
-            'location': saved,
-            'location_label': f"{saved['town_name']}, {saved['county_name']}",
-        })
 
 
 class AboutPageView(TemplateView):
@@ -428,9 +392,8 @@ class CategoryStorefrontView(StorefrontHomeLandingView):
     
 class ProductDetailPageView(TemplateView):
     """
-    Public product page. Variants (if any) each carry their own live
-    price (flash-sale aware) and stock total; simple products use
-    Product.price / compare_at_price directly.
+    Public product page. Variants carry live prices and privacy-safe stock
+    states; exact quantities remain internal to availability enforcement.
     """
     template_name = "core/product_detail.html"
 
@@ -452,6 +415,7 @@ class ProductDetailPageView(TemplateView):
         now = timezone.now()
         variant_data = []
         in_stock = False
+        stock_status = 'OUT_OF_STOCK'
         if variants:
             stock_queryset = Stock.objects.filter(
                 variant_id__in=[v.id for v in variants],
@@ -469,12 +433,16 @@ class ProductDetailPageView(TemplateView):
             for v in variants:
                 fs = active_sales.get(v.id)
                 stock_qty = stock_map.get(v.id, 0)
+                stock_status = public_stock_status(
+                    stock_qty, product.low_stock_threshold,
+                )
                 media = build_variant_media(v, base_media)
                 if stock_qty > 0:
                     in_stock = True
                 variant_data.append({
                     'variant': v,
                     'stock': stock_qty,
+                    'stock_status': stock_status,
                     'price': fs.sale_price if fs else v.effective_price,
                     'regular_price': v.effective_price,
                     'flash_sale': fs,
@@ -485,6 +453,8 @@ class ProductDetailPageView(TemplateView):
                     'media': media,
                 })
             variant_data.sort(key=lambda item: item['stock'] <= 0)
+            if variant_data:
+                stock_status = variant_data[0]['stock_status']
         else:
             direct_stock_queryset = Stock.objects.filter(
                 product=product, variant__isnull=True,
@@ -493,7 +463,9 @@ class ProductDetailPageView(TemplateView):
                 total=Sum(F('quantity') - F('reserved_quantity'))
             )['total'] or 0
             in_stock = direct_stock > 0
-            context['direct_stock'] = direct_stock
+            stock_status = public_stock_status(
+                direct_stock, product.low_stock_threshold,
+            )
         reviews_qs = product.reviews.filter(
             is_approved=True, is_current=True,
         ).select_related('customer')
@@ -562,7 +534,8 @@ class ProductDetailPageView(TemplateView):
                     'price': str(item['price']),
                     'regular_price': str(item['regular_price']),
                     'on_sale': bool(item['flash_sale']),
-                    'stock': item['stock'],
+                    'available': item['stock'] > 0,
+                    'low_stock': item['stock_status'] == 'LOW_STOCK',
                     'image': item['image_url'],
                     'image_alt': f"{product.name} — {item['variant'].option_summary}",
                     'media': item['media'],
@@ -577,6 +550,7 @@ class ProductDetailPageView(TemplateView):
             'initial_media': variant_data[0]['media'] if variant_data else base_media,
             'has_variants': bool(variants),
             'in_stock': in_stock,
+            'stock_status': stock_status,
             'on_sale': bool(product.compare_at_price and product.compare_at_price > product.price),
             'reviews': reviews_qs.order_by('-created_at')[:20],
             'average_rating': average_rating,

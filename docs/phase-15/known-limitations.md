@@ -18,11 +18,13 @@ These are accepted facts as of 2026-07-26, not hidden defects.
   encrypted-archive restore remain unverified until staging is funded.
 - Monitoring endpoints and the Beat-to-worker heartbeat are implemented locally, but no external uptime, Render or Sentry alert/recovery delivery has been proven because staging is unfunded.
 - The load tool is locally verified, but production-sized staging load, an approved peak-workload model and an independent penetration test/retest are outstanding launch gates.
-- The current working tree's **710-test** regression passes on PostgreSQL with
-  zero skips and zero failures. The SQLite run also passes with one expected skip
-  because SQLite does not expose `select_for_update`. The committed staging release
-  must repeat this evidence. Production-sized load, Nairobi-to-Frankfurt latency,
-  external security and client UAT remain pending.
+- The current working tree's **714-test** SQLite regression passes with one
+  expected skip because SQLite does not expose `select_for_update`. The 72 focused
+  catalogue, stock-presentation, destination and delivery-quote tests pass on
+  PostgreSQL. The last full PostgreSQL run covered 710 tests before this polish;
+  the committed staging release must repeat the complete PostgreSQL suite.
+  Production-sized load, Nairobi-to-Frankfurt latency, external security and
+  client UAT remain pending.
 
 ## Business configuration
 

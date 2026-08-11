@@ -199,11 +199,6 @@ class DeliveryQuoteAPITests(APITestCase):
             county=self.kakamega_county,
             normalized_name='kakamega',
         )
-        self.kisumu_county = KenyaCounty.objects.get(code='42')
-        self.kisumu_town = KenyaTown.objects.get(
-            county=self.kisumu_county,
-            normalized_name='kisumu',
-        )
         session = self.client.session
         session[STOREFRONT_SELECTED_BRANCH_KEY] = self.branch.pk
         session.save()
@@ -220,10 +215,8 @@ class DeliveryQuoteAPITests(APITestCase):
             'customer_name': 'Amina Customer',
             'customer_phone': '0712 345 678',
             'customer_email': 'amina@example.com',
-            'county_code': self.kakamega_county.code,
-            'town_id': self.kakamega_town.pk,
-            'use_custom_town': False,
-            'custom_town': '',
+            'county': self.kakamega_county.name,
+            'town': self.kakamega_town.name,
             'preferred_collection_area': 'Main town stage',
             'notes': 'Call before dispatch.',
         }
@@ -273,11 +266,7 @@ class DeliveryQuoteAPITests(APITestCase):
     def test_guest_can_request_quote_for_explicit_unlisted_town(self):
         self._add_cart_item()
         payload = self._payload()
-        payload.update({
-            'town_id': None,
-            'use_custom_town': True,
-            'custom_town': '  Shinyalu   Centre  ',
-        })
+        payload['town'] = '  Shinyalu   Centre  '
 
         response = self.client.post(
             reverse('checkout:delivery-quote-create'), payload, format='json',
@@ -291,40 +280,33 @@ class DeliveryQuoteAPITests(APITestCase):
         self.stock.refresh_from_db()
         self.assertEqual(self.stock.reserved_quantity, 0)
 
-    def test_structured_destination_rejections_have_no_quote_order_or_stock_side_effects(self):
+    def test_typed_destination_rejections_have_no_quote_order_or_stock_side_effects(self):
         self._add_cart_item()
-        inactive_town = KenyaTown.objects.create(
-            county=self.kakamega_county,
-            name='Inactive Centre',
-            is_active=False,
-            source='TEST',
-            source_revision='TEST',
-        )
         cases = (
             (
-                'cross-county town',
-                {'town_id': self.kisumu_town.pk},
-                'selected county',
-            ),
-            (
-                'inactive town',
-                {'town_id': inactive_town.pk},
-                'active town',
-            ),
-            (
-                'tampered town identifier',
-                {'town_id': 'not-a-town-id'},
-                'active town',
-            ),
-            (
-                'missing town selection',
-                {'town_id': None},
-                'choose a town',
+                'unknown county',
+                {'county': 'Not a Kenyan county'},
+                "kenya's 47 counties",
             ),
             (
                 'missing county',
-                {'county_code': ''},
-                'active kenyan county',
+                {'county': ''},
+                'destination county',
+            ),
+            (
+                'missing town',
+                {'town': ''},
+                'destination town',
+            ),
+            (
+                'unsupported town characters',
+                {'town': 'Kakamega\x00'},
+                'unsupported characters',
+            ),
+            (
+                'overlong town',
+                {'town': 'x' * 101},
+                '100 characters',
             ),
         )
 
@@ -351,22 +333,25 @@ class DeliveryQuoteAPITests(APITestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
-        self.assertIn('active kenyan county', response.data['error'].lower())
+        self.assertIn("kenya's 47 counties", response.data['error'].lower())
         self._assert_no_quote_side_effects()
 
-    def test_legacy_free_text_county_and_town_cannot_bypass_structured_validation(self):
+    def test_legacy_structured_identifiers_cannot_bypass_typed_validation(self):
         self._add_cart_item()
         payload = self._payload()
-        payload.pop('county_code')
-        payload.pop('town_id')
-        payload.update({'county': 'Kakamega', 'town': 'Kakamega'})
+        payload.pop('county')
+        payload.pop('town')
+        payload.update({
+            'county_code': self.kakamega_county.code,
+            'town_id': self.kakamega_town.pk,
+        })
 
         response = self.client.post(
             reverse('checkout:delivery-quote-create'), payload, format='json',
         )
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST, response.data)
-        self.assertIn('active kenyan county', response.data['error'].lower())
+        self.assertIn('destination county', response.data['error'].lower())
         self._assert_no_quote_side_effects()
 
     def test_empty_cart_cannot_request_delivery_quote(self):
@@ -605,7 +590,7 @@ class DeliveryQuoteCustomerPageTests(TestCase):
             content_type='application/json',
         )
 
-    def test_checkout_offers_structured_quote_and_keeps_pickup_selected(self):
+    def test_checkout_offers_typed_destination_quote_and_keeps_pickup_selected(self):
         response = self.client.get(reverse('checkout-page'))
 
         self.assertEqual(response.status_code, 200)

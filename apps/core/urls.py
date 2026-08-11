@@ -32,7 +32,6 @@ from core.views import (
     WishlistToggleView,
     RestockSubscribeView,
     RestockCancelView,
-    ShopperLocationPreferenceView,
 )
 from core.health import LivenessView, OperationalHealthView, ReadinessView
 
@@ -59,7 +58,6 @@ path('', StorefrontHomeLandingView.as_view(), name='storefront_home'),
     path('wishlist/<int:product_id>/toggle/', WishlistToggleView.as_view(), name='wishlist_toggle'),
     path('restock-alerts/subscribe/', RestockSubscribeView.as_view(), name='restock_subscribe'),
     path('restock-alerts/<uuid:token>/cancel/', RestockCancelView.as_view(), name='restock_cancel'),
-    path('shopping-location/', ShopperLocationPreferenceView.as_view(), name='shopper_location'),
     # Session cart
     path('cart-gateway/', ReactiveCartActionGatewayView.as_view(), name='cart_action_gateway'),
     path('navbar-cart-counter/', NavbarCartCounterPartialView.as_view(), name='navbar_cart_counter'),

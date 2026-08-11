@@ -30,8 +30,6 @@
     <a href="#main-content" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:bg-white focus:p-3">Skip to main content</a>
 
     {% include 'partials/navbar.html' %}
-    {% if not user.is_authenticated or user.role == 'CUSTOMER' %}{% include 'partials/location_selector.html' %}{% endif %}
-
     <div id="toast-container" class="pointer-events-none fixed inset-x-3 top-3 z-50 flex min-w-0 flex-col gap-3 sm:left-auto sm:right-5 sm:top-5 sm:w-[24rem]">
         {% include 'partials/toast_messages.html' %}
     </div>
@@ -45,7 +43,7 @@
         {% endblock %}
     </main>
 
-    {% if whatsapp_order_url %}
+    {% if whatsapp_order_url and not hide_global_whatsapp %}
     <a href="{{ whatsapp_order_url }}" target="_blank" rel="noopener noreferrer" class="fixed bottom-4 right-4 z-40 rounded-full bg-emerald-600 px-4 py-3 text-xs font-bold text-white shadow-xl hover:bg-emerald-700 sm:bottom-5 sm:right-5 sm:text-sm" aria-label="Order through WhatsApp">
         <span class="sr-only">Order via WhatsApp</span><span aria-hidden="true">WhatsApp us</span>
     </a>
@@ -65,7 +63,6 @@
     </footer>
 
     <script src="{% static 'core/base.js' %}" defer></script>
-    {% if not user.is_authenticated or user.role == 'CUSTOMER' %}<script src="{% static 'core/location-selector.js' %}?v=20260802a" defer></script>{% endif %}
     {% block extra_js %}{% endblock %}
 </body>
 </html>

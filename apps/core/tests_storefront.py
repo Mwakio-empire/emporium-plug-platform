@@ -155,7 +155,7 @@ class StorefrontCatalogTests(TestCase):
         response = self.client.get(reverse(
             'core:product_detail', kwargs={'slug': self.kettle.slug},
         ))
-        self.assertContains(response, 'In stock and ready to order')
+        self.assertContains(response, 'Low stock - order soon')
         self.assertNotContains(response, 'Choose a branch')
         self.assertNotContains(response, 'detail-branch')
 
@@ -267,7 +267,8 @@ class StorefrontCatalogTests(TestCase):
         self.assertContains(response, 'Capacity')
         self.assertContains(response, '1.7 litres')
         self.assertContains(response, 'name="quantity"')
-        self.assertContains(response, 'max="4"')
+        self.assertNotContains(response, 'max="4"')
+        self.assertContains(response, 'Low stock - order soon')
         self.assertContains(response, '/static/core/product_detail.js')
         self.assertNotContains(response, 'onclick=')
 

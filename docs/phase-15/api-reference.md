@@ -17,13 +17,13 @@ Restock alerts do not reserve stock, are not marketing subscriptions and expire 
 | Method | Path | Purpose |
 |---|---|---|
 | GET | `/api/catalog/categories/` | Visible nested categories. |
-| GET | `/api/catalog/products/` | Active catalog with supported filters/sorting/pagination. |
-| GET | `/api/catalog/products/{slug}/` | Active product detail, including ordered colour-value image galleries and accessible alternative text. |
+| GET | `/api/catalog/products/` | Active catalog with supported filters/sorting/pagination and privacy-safe stock states; exact quantities are not public. |
+| GET | `/api/catalog/products/{slug}/` | Active product detail, ordered colour-value image galleries, accessible alternative text and privacy-safe product/variant stock states. |
 | GET | `/api/logistics/zones/` | Legacy delivery-zone configuration. Public launch checkout does not expose self-service delivery. |
 | GET | `/api/logistics/pickup-slots/` | Active, non-expired pickup slots. |
 | GET | `/api/logistics/towns/?county={two-digit-code}` | Anonymous, rate-limited active town `id` and `name` values for one active county. Invalid, missing and inactive counties return HTTP 400. |
 
-The town endpoint exposes reference names only, never transport operators, routes, prices or customer data. A listed town is not an approved route or fee. Checkout submits a county code with a town identifier, or the explicit unlisted-town fallback; the server validates the relationship before creating a quote request.
+The town endpoint remains available for maintained reference-data uses, but the launch checkout does not depend on it. A customer types `county`, `town` and `preferred_collection_area`; the county is validated against the active Kenyan county reference and the town is safely normalized before the snapshot is created. These fields do not approve a route or fee.
 
 ## Identity
 
@@ -55,6 +55,10 @@ The town endpoint exposes reference names only, never transport operators, route
 | POST | `/api/orders/{order_number}/cancel/` | Owner or signed/expiring guest access; throttled | Cancel an unpaid online order during the configured grace period and release its reservation once. |
 
 Direct checkout initialization accepts `ONLINE_PICKUP` only and requires an active S18 pickup arrangement, phone, approved payment method and explicit confirmation. Town delivery must start through the quote endpoints above; a forged direct `ONLINE_DELIVERY` request is rejected. Quote acceptance rehydrates product identities from the stored snapshot, rechecks current stock/pricing/coupon rules, compares the customer-confirmed total and creates an `ONLINE_DELIVERY` order atomically. The server never trusts browser prices or totals.
+
+The delivery-quote creation payload uses customer contact fields plus `county`,
+`town`, `preferred_collection_area` and optional `notes`. Legacy browser fields
+such as `county_code`, `town_id` and `custom_town` are not accepted as a substitute.
 
 Customer self-cancellation defaults to ten minutes. It permits unpaid M-Pesa orders and cash-at-pickup orders only before fulfilment progresses. Confirmed or uncertain payment evidence blocks self-cancellation and requires staff reconciliation; automated refunds are not implemented.
 

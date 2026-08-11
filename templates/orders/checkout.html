@@ -47,7 +47,7 @@
         <section class="lg:col-span-3 rounded-2xl border border-slate-200 bg-white p-6" aria-labelledby="details-heading">
             <h2 id="details-heading" class="text-xl font-bold text-slate-900">Collection and payment</h2>
             {% if cart_items %}
-            <form id="checkout-form" class="mt-5 space-y-5" data-idempotency-key="{{ checkout_idempotency_key }}" data-towns-url="{% url 'logistics:towns' %}" data-saved-county="{{ shopper_location.county_code|default:'' }}" data-saved-town-id="{{ shopper_location.town_id|default:'' }}" data-saved-custom-town="{% if shopper_location.use_custom_town %}{{ shopper_location.town_name|default:'' }}{% endif %}" novalidate>
+            <form id="checkout-form" class="mt-5 space-y-5" data-idempotency-key="{{ checkout_idempotency_key }}" novalidate>
                 {% csrf_token %}
                 <fieldset class="space-y-4">
                     <legend class="text-base font-bold text-slate-900">Contact details</legend>
@@ -88,29 +88,23 @@
                     </div>
                     <div id="delivery-quote-fields" class="hidden space-y-4 rounded-xl border border-brand-200 bg-brand-50 p-4">
                         <div class="rounded-lg bg-white p-3 text-sm leading-6 text-slate-700"><strong>This requests a transport price—it does not place an order.</strong> During opening hours we aim to respond within 30 minutes. If delayed, you can contact us on WhatsApp using your quote reference.</div>
-                        <div>
-                            <label for="quote-county" class="block text-sm font-semibold mb-1">County</label>
-                            <select id="quote-county" name="county_code" required disabled autocomplete="address-level1" class="w-full rounded-lg border-slate-300">
-                                <option value="">Select county</option>
-                                {% for county in delivery_counties %}<option value="{{ county.code }}">{{ county.name }}</option>{% endfor %}
-                            </select>
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <div>
+                                <label for="quote-county" class="mb-1 block text-sm font-semibold">County</label>
+                                <input id="quote-county" name="county" required disabled maxlength="80" list="kenya-county-suggestions" autocomplete="address-level1" placeholder="Example: Kakamega" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
+                                <datalist id="kenya-county-suggestions">{% for county in delivery_counties %}<option value="{{ county.name }}"></option>{% endfor %}</datalist>
+                            </div>
+                            <div>
+                                <label for="quote-town" class="mb-1 block text-sm font-semibold">Town or city</label>
+                                <input id="quote-town" name="town" required disabled maxlength="100" autocomplete="address-level2" placeholder="Example: Kakamega town" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
+                            </div>
                         </div>
                         <div>
-                            <label for="quote-town" class="block text-sm font-semibold mb-1">City / area</label>
-                            <select id="quote-town" name="town_id" required disabled aria-describedby="quote-town-status" autocomplete="address-level2" class="w-full rounded-lg border-slate-300">
-                                <option value="">Select a county first</option>
-                            </select>
-                            <p id="quote-town-status" class="mt-1 text-xs text-slate-600" role="status" aria-live="polite">Select a county to see its listed cities and areas.</p>
-                            <button id="quote-town-retry" type="button" hidden class="mt-2 rounded-lg border border-brand-600 bg-white px-3 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-offset-2">Retry loading locations</button>
+                            <label for="quote-area" class="mb-1 block text-sm font-semibold">Preferred collection area or landmark</label>
+                            <input id="quote-area" name="preferred_collection_area" maxlength="160" required disabled placeholder="Example: main bus stage or town centre" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
+                            <p class="mt-1 text-xs leading-5 text-slate-600">Type the location in your own words. Our team will confirm the exact operator and collection point before you pay.</p>
                         </div>
-                        <div id="quote-custom-town-field" hidden>
-                            <p class="mb-2 text-sm font-semibold text-slate-900">My city / area isn't listed</p>
-                            <label for="quote-custom-town" class="block text-sm font-semibold mb-1">Enter your city or area</label>
-                            <input id="quote-custom-town" name="custom_town" maxlength="100" disabled autocomplete="address-level2" class="w-full rounded-lg border-slate-300">
-                            <p class="mt-1 text-xs text-slate-600">We will verify the route and collection point before asking you to pay.</p>
-                        </div>
-                        <div><label for="quote-area" class="block text-sm font-semibold mb-1">Preferred collection area</label><input id="quote-area" maxlength="160" disabled placeholder="Example: main bus stage or town centre" class="w-full rounded-lg border-slate-300"></div>
-                        <div><label for="quote-notes" class="block text-sm font-semibold mb-1">Delivery note <span class="font-normal text-slate-500">(optional)</span></label><textarea id="quote-notes" maxlength="1000" rows="3" disabled class="w-full rounded-lg border-slate-300"></textarea></div>
+                        <div><label for="quote-notes" class="block text-sm font-semibold mb-1">Delivery note <span class="font-normal text-slate-500">(optional)</span></label><textarea id="quote-notes" name="notes" maxlength="1000" rows="3" disabled placeholder="Anything that will help us arrange the parcel" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600"></textarea></div>
                         {% if delivery_whatsapp_url %}<a href="{{ delivery_whatsapp_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex text-sm font-bold text-emerald-800 underline">Need immediate help? Contact us on WhatsApp</a>{% endif %}
                     </div>
                 </fieldset>
@@ -165,5 +159,5 @@
 {% endblock %}
 
 {% block extra_js %}
-{% if cart_items %}<script src="{% static 'orders/checkout.js' %}?v=20260802-location-prefill" defer></script>{% endif %}
+{% if cart_items %}<script src="{% static 'orders/checkout.js' %}?v=20260811-simple-destination" defer></script>{% endif %}
 {% endblock %}
