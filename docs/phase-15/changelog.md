@@ -8,6 +8,8 @@
   and collection-area fields. County names are still validated against the
   active Kenyan county reference; staff still verifies the route, operator,
   collection point and fee before payment.
+- Removed the remaining browser suggestion list from the county field, so both
+  county and town are ordinary text inputs with no selection step.
 - Replaced public exact inventory quantities with `In stock`, `Low stock - order
   soon` and `Out of stock` states. Exact quantities remain available to internal
   inventory and ordering logic.

@@ -91,12 +91,11 @@
                         <div class="grid gap-4 sm:grid-cols-2">
                             <div>
                                 <label for="quote-county" class="mb-1 block text-sm font-semibold">County</label>
-                                <input id="quote-county" name="county" required disabled maxlength="80" list="kenya-county-suggestions" autocomplete="address-level1" placeholder="Example: Kakamega" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
-                                <datalist id="kenya-county-suggestions">{% for county in delivery_counties %}<option value="{{ county.name }}"></option>{% endfor %}</datalist>
+                                <input id="quote-county" name="county" required disabled maxlength="80" autocomplete="address-level1" placeholder="Type your county" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
                             </div>
                             <div>
                                 <label for="quote-town" class="mb-1 block text-sm font-semibold">Town or city</label>
-                                <input id="quote-town" name="town" required disabled maxlength="100" autocomplete="address-level2" placeholder="Example: Kakamega town" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
+                                <input id="quote-town" name="town" required disabled maxlength="100" autocomplete="address-level2" placeholder="Type your town or city" class="w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-600 focus:ring-brand-600">
                             </div>
                         </div>
                         <div>

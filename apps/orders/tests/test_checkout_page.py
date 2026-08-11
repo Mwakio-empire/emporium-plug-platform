@@ -7,7 +7,7 @@ from django.urls import reverse
 from branches.models import Branch
 from catalog.models import Category, Product
 from inventory.models import Stock
-from logistics.models import KenyaCounty, PickupSlot
+from logistics.models import PickupSlot
 from orders.cart_services import STOREFRONT_CART_BRANCH_KEY, STOREFRONT_CART_KEY
 
 
@@ -91,17 +91,17 @@ class CheckoutPageTests(TestCase):
 
     def test_delivery_quote_uses_simple_typed_destination_fields(self):
         self._add_cart_with_pickup()
-        KenyaCounty.objects.filter(code='37').update(name='KAKAMEGA', is_active=True)
-        KenyaCounty.objects.filter(code='38').update(name='VIHIGA', is_active=False)
 
         response = self.client.get(reverse('checkout-page'))
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, '<input id="quote-county"')
-        self.assertContains(response, '<option value="Kakamega"></option>')
-        self.assertNotContains(response, 'Vihiga')
+        self.assertContains(response, 'placeholder="Type your county"')
+        self.assertNotContains(response, 'list="kenya-county-suggestions"')
+        self.assertNotContains(response, '<datalist')
         self.assertContains(response, '<input id="quote-town"')
         self.assertContains(response, 'name="town" required disabled')
+        self.assertContains(response, 'placeholder="Type your town or city"')
         self.assertContains(response, 'Preferred collection area or landmark')
         self.assertContains(response, 'Type the location in your own words.')
         self.assertNotContains(response, 'quote-town-retry')

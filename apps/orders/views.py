@@ -10,9 +10,8 @@ from django.db.models import Q
 from django.utils import timezone
 from django.views.generic import TemplateView
 from branches.models import Branch
-from logistics.models import KenyaCounty, PickupSlot
+from logistics.models import PickupSlot
 from core.context_processors import build_whatsapp_url
-from core.location_preferences import human_location_label
 from .document_services import CommercialDocumentGenerator
 from .models import Order
 from .cart_services import UnifiedSessionCartService
@@ -137,15 +136,6 @@ class CheckoutPageView(UserPassesTestMixin, TemplateView):
                 self.request.user.email
                 if self.request.user.is_authenticated else ''
             ),
-            'delivery_counties': [
-                {
-                    'code': county['code'],
-                    'name': human_location_label(county['name']),
-                }
-                for county in KenyaCounty.objects.filter(is_active=True)
-                .order_by('name', 'code')
-                .values('code', 'name')
-            ],
         })
         return context
 
