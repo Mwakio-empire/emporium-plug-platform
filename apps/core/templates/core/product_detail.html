@@ -34,7 +34,7 @@
         <span class="text-[10px] font-mono font-bold tracking-wider text-brand-700 bg-brand-50 px-2.5 py-0.5 rounded-full uppercase">{{ product.category.name }}</span>
         <h1 class="text-2xl font-black text-slate-900 tracking-tight">{{ product.name }}</h1>
 
-        {% if average_rating %}<p class="text-sm font-semibold text-amber-700"><span aria-hidden="true">&#9733;</span> {{ average_rating|floatformat:1 }} out of 5 <span class="font-normal text-slate-500">from {{ review_count }} verified review{{ review_count|pluralize }}</span></p>{% else %}<p class="text-sm text-slate-500">Not yet reviewed</p>{% endif %}
+        {% if average_rating %}<p class="text-sm font-semibold text-amber-700"><span aria-hidden="true">&#9733;</span> {{ average_rating|floatformat:1 }} out of 5 <span class="font-normal text-slate-500">from {{ review_count }} review{{ review_count|pluralize }}</span></p>{% else %}<p class="text-sm text-slate-500">Not yet reviewed</p>{% endif %}
 
         {% if has_variants %}
         <div id="variant-picker" class="variant-picker" aria-label="Choose product options">
@@ -208,7 +208,8 @@
             <div class="flex flex-wrap items-center gap-2">
                 <span class="text-sm font-black text-amber-600" aria-label="{{ r.rating }} out of 5 stars">&#9733; {{ r.rating }}/5</span>
                 <span class="text-sm font-bold text-slate-800">{{ r.customer.first_name|default:"Customer" }}</span>
-                {% if r.moderation_reason|slice:":10" == "DEMO_ONLY:" %}<span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800">Sample review</span>{% elif r.is_verified_purchase %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">Verified purchase</span>{% endif %}
+                {% if r.moderation_reason|slice:":10" == "DEMO_ONLY:" %}<span class="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-blue-800">Sample review</span>{% endif %}
+                {% if r.is_verified_purchase %}<span class="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-emerald-800">Verified purchase</span>{% endif %}
             </div>
             <p class="mt-3 text-sm leading-6 text-slate-600">{{ r.comment }}</p>
         </article>

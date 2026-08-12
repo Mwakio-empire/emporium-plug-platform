@@ -1,5 +1,12 @@
 # Change log
 
+## 2026-08-12 - Verified-review preview integrity
+
+- Extended the non-production review seeder with controlled completed-order
+  evidence so the verified-purchase badge can be inspected end to end.
+- Demo feedback remains visibly labelled `Sample review`; it cannot be mistaken
+  for genuine customer testimony, and the command remains blocked in production.
+
 ## 2026-08-11 - Simpler destination entry and stock privacy
 
 - Removed the global shopping-location prompt so customers can browse without

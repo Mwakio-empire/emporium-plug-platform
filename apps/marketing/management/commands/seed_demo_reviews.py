@@ -1,3 +1,5 @@
+import uuid
+
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand, CommandError
@@ -5,10 +7,13 @@ from django.db import transaction
 from django.utils import timezone
 
 from catalog.models import Product
+from branches.models import Branch
 from marketing.models import ProductReview
+from orders.models import Order, OrderItem
 
 
 DEMO_REASON = 'DEMO_ONLY: simulated review for storefront interface testing.'
+DEMO_ORDER_NOTE = 'DEMO_ONLY: verified-review interface preview.'
 REVIEWERS = (
     ('amina', '+254700090001', 'Amina'),
     ('brian', '+254700090002', 'Brian'),
@@ -58,9 +63,11 @@ class Command(BaseCommand):
             removed_reviews, _ = ProductReview.objects.filter(
                 moderation_reason=DEMO_REASON,
             ).delete()
+            removed_orders, _ = Order.objects.filter(notes=DEMO_ORDER_NOTE).delete()
             removed_users, _ = demo_users.delete()
             self.stdout.write(self.style.SUCCESS(
-                f'Removed {removed_reviews} demo review records and {removed_users} demo user records.'
+                f'Removed {removed_reviews} demo review records, {removed_orders} '
+                f'demo order records and {removed_users} demo user records.'
             ))
             return
 
@@ -91,6 +98,52 @@ class Command(BaseCommand):
         if not products:
             raise CommandError('No demo catalogue products were found. Run seed_demo_catalog first.')
 
+        branch = Branch.objects.filter(is_active=True).order_by('pk').first()
+        if branch is None:
+            raise CommandError('An active branch is required to create the verified-review preview.')
+
+        preview_customer = users[0]
+        preview_order, _ = Order.objects.get_or_create(
+            checkout_idempotency_key=uuid.uuid5(
+                uuid.NAMESPACE_URL, 'emporium-plug:demo-verified-review-preview',
+            ),
+            defaults={
+                'branch': branch,
+                'order_type': Order.OrderType.ONLINE_PICKUP,
+                'customer': preview_customer,
+                'customer_phone': preview_customer.phone_number,
+                'customer_name': preview_customer.first_name,
+                'payment_method': Order.PaymentMethod.COD,
+                'sales_channel': Order.SalesChannel.WEBSITE,
+                'status': Order.Status.COLLECTED,
+                'processed_by': moderator,
+                'notes': DEMO_ORDER_NOTE,
+            },
+        )
+        preview_total = 0
+        for product in products.values():
+            variant = product.variants.filter(is_active=True).order_by('pk').first()
+            unit_price = variant.effective_price if variant else product.price
+            item_lookup = {'variant': variant} if variant else {'product': product}
+            OrderItem.objects.update_or_create(
+                order=preview_order,
+                **item_lookup,
+                defaults={
+                    'quantity': 1,
+                    'unit_price': unit_price,
+                    'regular_unit_price': unit_price,
+                    'total_price': unit_price,
+                },
+            )
+            preview_total += unit_price
+        preview_order.subtotal = preview_total
+        preview_order.total_payable = preview_total
+        preview_order.status = Order.Status.COLLECTED
+        preview_order.notes = DEMO_ORDER_NOTE
+        preview_order.save(update_fields=[
+            'subtotal', 'total_payable', 'status', 'notes', 'updated_at',
+        ])
+
         now = timezone.now()
         created = 0
         updated = 0
@@ -98,7 +151,9 @@ class Command(BaseCommand):
             product = products.get(sku)
             if product is None:
                 continue
-            for user, (rating, comment) in zip(users, definitions, strict=True):
+            for index, (user, (rating, comment)) in enumerate(
+                zip(users, definitions, strict=True),
+            ):
                 _, was_created = ProductReview.objects.update_or_create(
                     product=product,
                     customer=user,
@@ -106,7 +161,10 @@ class Command(BaseCommand):
                     defaults={
                         'rating': rating,
                         'comment': comment,
-                        'is_verified_purchase': False,
+                        # The first sample has controlled completed-order
+                        # evidence so the real verified-purchase badge can be
+                        # previewed without presenting it as genuine feedback.
+                        'is_verified_purchase': index == 0,
                         'is_approved': True,
                         'moderated_by': moderator,
                         'moderated_at': now,
@@ -118,5 +176,7 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f'Demo reviews ready: {created} created, {updated} updated. '
-            'They are labelled Sample review and are not verified purchases.'
+            'Every review is labelled Sample review; the first review for each '
+            'product also previews the verified-purchase badge using a controlled '
+            'completed demo order.'
         ))
