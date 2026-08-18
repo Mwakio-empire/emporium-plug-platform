@@ -2,6 +2,7 @@
 
 from decimal import Decimal
 import logging
+from urllib.parse import urlsplit
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.urls import reverse
@@ -15,14 +16,19 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 # now:
 from django.db import models  
-from django.db.models import Q, Sum, Avg, F
+from django.db.models import Q, Sum, Avg, F, Count
+from django.utils.http import url_has_allowed_host_and_scheme
 from branches.models import Branch
 from users.models import User
 from users.permissions import is_pos_operator
 # Internal Application App Imports (Cleaned from apps. prefixes)
 from orders.cart_services import UnifiedPOSCartService, UnifiedSessionCartService
 from core.services import HighPerformanceOptimizationService
-from catalog.models import Product, Category, ProductVariant
+from catalog.models import Product, Category, ProductVariant, WishlistItem, RestockSubscription
+from catalog.restock_services import create_restock_subscription, cancel_restock_subscription
+from catalog.media_services import product_media as build_product_media, variant_media as build_variant_media
+from catalog.stock_presentation import public_stock_status
+from catalog.wishlist_services import toggle_wishlist_product, wishlist_product_ids
 from catalog.storefront import (
     apply_storefront_filters,
     public_products,
@@ -76,6 +82,16 @@ def _storefront_catalog_context(request, filter_values=None):
     products = apply_storefront_filters(
         public_products(),
         filter_values,
+    ).annotate(
+        approved_review_count=Count(
+            'reviews',
+            filter=Q(reviews__is_approved=True, reviews__is_current=True),
+            distinct=True,
+        ),
+        approved_average_rating=Avg(
+            'reviews__rating',
+            filter=Q(reviews__is_approved=True, reviews__is_current=True),
+        ),
     )
     now = timezone.now()
     flash_product_ids = set(FlashSale.objects.filter(
@@ -84,13 +100,134 @@ def _storefront_catalog_context(request, filter_values=None):
         is_active=True,
     ).values_list('variant__product_id', flat=True))
     page_obj = Paginator(products, 24).get_page(filter_values.get('page'))
+    query_string = filter_values.urlencode() if hasattr(filter_values, 'urlencode') else ''
+    wishlist_return_url = reverse('core:storefront_home')
+    if query_string:
+        wishlist_return_url = f'{wishlist_return_url}?{query_string}'
+    wishlist_return_url = f'{wishlist_return_url}#product-grid-target'
     return {
         'products': page_obj.object_list,
         'page_obj': page_obj,
         'flash_sales': flash_product_ids,
         'selected_branch': None,
         'filter_values': filter_values,
+        'wishlist_product_ids': wishlist_product_ids(request),
+        'wishlist_return_url': wishlist_return_url,
     }
+
+
+class WishlistToggleView(View):
+    def post(self, request, product_id):
+        product = get_object_or_404(
+            Product,
+            pk=product_id,
+            status=Product.Status.ACTIVE,
+            category__is_visible=True,
+        )
+        saved = toggle_wishlist_product(request, product)
+        messages.success(request, 'Saved to your wishlist.' if saved else 'Removed from your wishlist.')
+        next_url = request.POST.get('next') or request.META.get('HTTP_REFERER') or reverse('core:storefront_home')
+        if not url_has_allowed_host_and_scheme(next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()):
+            next_url = reverse('core:storefront_home')
+        elif urlsplit(next_url).path == reverse('core:catalog_filter_engine'):
+            # The catalog filter endpoint renders an HTML fragment for HTMX. It
+            # must never become the browser's top-level page after a form POST.
+            query = urlsplit(next_url).query
+            next_url = reverse('core:storefront_home')
+            if query:
+                next_url = f'{next_url}?{query}'
+            next_url = f'{next_url}#product-grid-target'
+        return redirect(next_url)
+
+
+class WishlistPageView(TemplateView):
+    template_name = 'core/wishlist.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product_ids = wishlist_product_ids(self.request)
+        context['products'] = public_products().filter(pk__in=product_ids).order_by('-updated_at')
+        context['wishlist_product_ids'] = product_ids
+        context['is_guest_wishlist'] = not self.request.user.is_authenticated
+        return context
+
+
+class RestockSubscribeView(View):
+    def post(self, request):
+        from notifications.services import keyed_digest, normalize_phone
+        from users.rate_limit import check_rate_limit
+
+        next_url = request.POST.get('next') or reverse('core:storefront_home')
+        if not url_has_allowed_host_and_scheme(
+            next_url,
+            allowed_hosts={request.get_host()},
+            require_https=request.is_secure(),
+        ):
+            next_url = reverse('core:storefront_home')
+        try:
+            product = get_object_or_404(
+                Product.objects.select_related('category'),
+                pk=request.POST.get('product_id'),
+                status=Product.Status.ACTIVE,
+                category__is_visible=True,
+            )
+            variant = None
+            if request.POST.get('variant_id'):
+                variant = get_object_or_404(
+                    ProductVariant,
+                    pk=request.POST['variant_id'],
+                    product=product,
+                    is_active=True,
+                )
+            phone = normalize_phone(request.POST.get('phone_number'))
+            ip = request.META.get('REMOTE_ADDR', 'unknown')
+            check_rate_limit(f'restock:ip:{ip}', limit=20, window_seconds=3600)
+            check_rate_limit(
+                f'restock:phone:{keyed_digest(phone)}', limit=5, window_seconds=86400,
+            )
+            customer = request.user if request.user.is_authenticated else None
+            subscription = create_restock_subscription(
+                product=product,
+                variant=variant,
+                phone_number=phone,
+                customer=customer,
+            )
+        except (ValidationError, ValueError) as exc:
+            message = exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
+            messages.error(request, message)
+        else:
+            request.session['restock_manage_token'] = str(subscription.unsubscribe_token)
+            messages.success(
+                request,
+                'Alert saved. We will send one SMS when this exact item is available. '
+                'Stock is not reserved.',
+            )
+        return redirect(next_url)
+
+
+class RestockCancelView(TemplateView):
+    template_name = 'core/restock_cancel.html'
+
+    def dispatch(self, request, *args, **kwargs):
+        self.subscription = get_object_or_404(
+            RestockSubscription.objects.select_related('product', 'variant__product'),
+            unsubscribe_token=kwargs['token'],
+        )
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['subscription'] = self.subscription
+        return context
+
+    def post(self, request, *args, **kwargs):
+        cancel_restock_subscription(self.subscription)
+        if request.session.get('restock_manage_token') == str(self.subscription.unsubscribe_token):
+            request.session.pop('restock_manage_token', None)
+        messages.success(request, 'Restock alert cancelled.')
+        return redirect(
+            'core:product_detail', slug=self.subscription.catalog_product.slug,
+        )
 
 class AsynchronousCatalogFilterEngineView(View):
     """
@@ -212,9 +349,9 @@ class StorefrontHomeLandingView(TemplateView):
         context.update(_storefront_catalog_context(self.request))
         context['canonical_url'] = self.request.build_absolute_uri(reverse('core:storefront_home'))
         context['page_title'] = 'Shop Online | Emporium Plug'
-        context['page_meta_description'] = 'Shop quality everyday products from Emporium Plug for S18 pickup, or ask about a town parcel on WhatsApp.'
+        context['page_meta_description'] = 'Shop quality everyday products from Emporium Plug for S18 pickup, or request a verified parcel quote to your Kenyan town.'
         context['page_heading'] = 'Quality finds. Fair value. Shop with confidence.'
-        context['page_intro'] = 'Browse one simple store—we handle stock behind the scenes. Checkout for S18 pickup, or ask us on WhatsApp if you need a parcel sent to your town.'
+        context['page_intro'] = 'Browse one simple store—we handle stock behind the scenes. Choose S18 pickup or request a verified parcel quote to your Kenyan town before paying.'
         context['prevent_indexing'] = bool(self.request.GET)
         cart = UnifiedSessionCartService(self.request)
         context.update({
@@ -255,9 +392,8 @@ class CategoryStorefrontView(StorefrontHomeLandingView):
     
 class ProductDetailPageView(TemplateView):
     """
-    Public product page. Variants (if any) each carry their own live
-    price (flash-sale aware) and stock total; simple products use
-    Product.price / compare_at_price directly.
+    Public product page. Variants carry live prices and privacy-safe stock
+    states; exact quantities remain internal to availability enforcement.
     """
     template_name = "core/product_detail.html"
 
@@ -265,15 +401,21 @@ class ProductDetailPageView(TemplateView):
         context = super().get_context_data(**kwargs)
         from inventory.models import Stock
         product = get_object_or_404(
-            Product.objects.select_related('category').prefetch_related('gallery_images'),
+            Product.objects.select_related('category').prefetch_related(
+                'gallery_images', 'options__values__images', 'quantity_price_tiers',
+                'variants__option_assignments__option',
+                'variants__option_assignments__value__images',
+            ),
             slug=kwargs['slug'],
             status=Product.Status.ACTIVE,
             category__is_visible=True,
         )
-        variants = list(product.variants.all())
+        variants = list(product.variants.filter(is_active=True))
+        base_media = build_product_media(product)
         now = timezone.now()
         variant_data = []
         in_stock = False
+        stock_status = 'OUT_OF_STOCK'
         if variants:
             stock_queryset = Stock.objects.filter(
                 variant_id__in=[v.id for v in variants],
@@ -291,15 +433,28 @@ class ProductDetailPageView(TemplateView):
             for v in variants:
                 fs = active_sales.get(v.id)
                 stock_qty = stock_map.get(v.id, 0)
+                stock_status = public_stock_status(
+                    stock_qty, product.low_stock_threshold,
+                )
+                media = build_variant_media(v, base_media)
                 if stock_qty > 0:
                     in_stock = True
                 variant_data.append({
                     'variant': v,
                     'stock': stock_qty,
+                    'stock_status': stock_status,
                     'price': fs.sale_price if fs else v.effective_price,
+                    'regular_price': v.effective_price,
                     'flash_sale': fs,
+                    'option_value_ids': [
+                        assignment.value_id for assignment in v.option_assignments.all()
+                    ],
+                    'image_url': v.image.url if v.image else '',
+                    'media': media,
                 })
             variant_data.sort(key=lambda item: item['stock'] <= 0)
+            if variant_data:
+                stock_status = variant_data[0]['stock_status']
         else:
             direct_stock_queryset = Stock.objects.filter(
                 product=product, variant__isnull=True,
@@ -308,7 +463,9 @@ class ProductDetailPageView(TemplateView):
                 total=Sum(F('quantity') - F('reserved_quantity'))
             )['total'] or 0
             in_stock = direct_stock > 0
-            context['direct_stock'] = direct_stock
+            stock_status = public_stock_status(
+                direct_stock, product.low_stock_threshold,
+            )
         reviews_qs = product.reviews.filter(
             is_approved=True, is_current=True,
         ).select_related('customer')
@@ -316,9 +473,12 @@ class ProductDetailPageView(TemplateView):
         canonical_url = self.request.build_absolute_uri(
             reverse('core:product_detail', kwargs={'slug': product.slug}),
         )
-        gallery_urls = [self.request.build_absolute_uri(image.image.url) for image in product.gallery_images.all()]
-        if product.image:
-            gallery_urls.insert(0, self.request.build_absolute_uri(product.image.url))
+        all_media = [*base_media]
+        for item in variant_data:
+            all_media.extend(item['media'])
+        gallery_urls = list(dict.fromkeys(
+            self.request.build_absolute_uri(item['url']) for item in all_media
+        ))
         overall_available = public_products().get(pk=product.pk).available_stock > 0
         offer_price = (
             min(item['price'] for item in variant_data)
@@ -366,20 +526,58 @@ class ProductDetailPageView(TemplateView):
         context.update({
             'product': product,
             'variant_data': variant_data,
+            'variant_matrix': [
+                {
+                    'id': item['variant'].pk,
+                    'sku': item['variant'].sku,
+                    'values': item['option_value_ids'],
+                    'price': str(item['price']),
+                    'regular_price': str(item['regular_price']),
+                    'on_sale': bool(item['flash_sale']),
+                    'available': item['stock'] > 0,
+                    'low_stock': item['stock_status'] == 'LOW_STOCK',
+                    'image': item['image_url'],
+                    'image_alt': f"{product.name} — {item['variant'].option_summary}",
+                    'media': item['media'],
+                    'flash_end': (
+                        item['flash_sale'].end_time.isoformat()
+                        if item['flash_sale'] else ''
+                    ),
+                }
+                for item in variant_data
+            ],
+            'option_groups': product.options.prefetch_related('values').all(),
+            'initial_media': variant_data[0]['media'] if variant_data else base_media,
             'has_variants': bool(variants),
             'in_stock': in_stock,
+            'stock_status': stock_status,
             'on_sale': bool(product.compare_at_price and product.compare_at_price > product.price),
             'reviews': reviews_qs.order_by('-created_at')[:20],
             'average_rating': average_rating,
             'can_review': can_review,
             'review_submitted': review_submitted,
+            'review_count': review_count,
+            'is_wishlisted': product.pk in wishlist_product_ids(self.request),
             'canonical_url': canonical_url,
             'meta_description': (product.meta_description or product.description or product.name)[:160],
             'product_schema': product_schema,
             'related_products': public_products().filter(
                 category=product.category,
             ).exclude(id=product.id)[:4],
+            'restock_phone': (
+                self.request.user.phone_number
+                if self.request.user.is_authenticated else ''
+            ),
+            'quantity_price_tiers': product.quantity_price_tiers.filter(is_active=True),
         })
+        manage_token = self.request.session.get('restock_manage_token')
+        if manage_token:
+            context['restock_manage_subscription'] = RestockSubscription.objects.filter(
+                unsubscribe_token=manage_token,
+                status=RestockSubscription.Status.ACTIVE,
+            ).filter(
+                Q(product=product) | Q(variant__product=product),
+            ).first()
         cart = UnifiedSessionCartService(self.request)
         context.update({
             'cart_items': cart.get_cart_items_extended(),
@@ -467,15 +665,101 @@ class AnalyticsDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateVi
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         user = self.request.user
-        
-        # Super Admin gets global visibility configuration controls
+        from django.db.models import ExpressionWrapper, IntegerField
+        from django.db.models.functions import Coalesce
+        from inventory.models import TransferRequest
+        from marketing.models import ProductReview, ReturnRequest
+        from notifications.models import Notification
+        from payments.models import MpesaTransaction
+        from reports.models import POSShift, ShiftReconciliation
+        from orders.models import OrderStatusHistory
+
+        branches = Branch.objects.filter(is_active=True).order_by('name')
+        selected_branch = user.branch
         if user.role == User.Role.SUPER_ADMIN:
-            context['is_super_admin'] = True
-            context['branches'] = Branch.objects.filter(is_active=True)
-        else:
-            context['is_super_admin'] = False
-            context['manager_branch'] = user.branch
-            
+            requested_branch = self.request.GET.get('branch')
+            if requested_branch and requested_branch != 'all':
+                selected_branch = branches.filter(pk=requested_branch).first()
+
+        order_scope = Order.objects.all()
+        stock_scope = Stock.objects.select_related('product', 'variant__product', 'branch')
+        return_scope = ReturnRequest.objects.all()
+        notification_scope = Notification.objects.all()
+        payment_scope = MpesaTransaction.objects.select_related('order')
+        transfer_scope = TransferRequest.objects.all()
+        shift_scope = POSShift.objects.all()
+        reconciliation_scope = ShiftReconciliation.objects.all()
+        activity_scope = OrderStatusHistory.objects.select_related('order__branch', 'changed_by')
+        if selected_branch is not None:
+            order_scope = order_scope.filter(branch=selected_branch)
+            stock_scope = stock_scope.filter(branch=selected_branch)
+            return_scope = return_scope.filter(order__branch=selected_branch)
+            notification_scope = notification_scope.filter(branch=selected_branch)
+            payment_scope = payment_scope.filter(order__branch=selected_branch)
+            transfer_scope = transfer_scope.filter(Q(from_branch=selected_branch) | Q(to_branch=selected_branch))
+            shift_scope = shift_scope.filter(branch=selected_branch)
+            reconciliation_scope = reconciliation_scope.filter(branch=selected_branch)
+            activity_scope = activity_scope.filter(order__branch=selected_branch)
+
+        active_order_statuses = [
+            Order.Status.PENDING, Order.Status.PAYMENT_CONFIRMED, Order.Status.PROCESSING,
+            Order.Status.PACKING, Order.Status.PACKED, Order.Status.RIDER_ASSIGNED,
+            Order.Status.DISPATCHED, Order.Status.ARRIVED_AT_DESTINATION,
+            Order.Status.OUT_FOR_DELIVERY, Order.Status.READY_FOR_PICKUP,
+            Order.Status.DISPUTED,
+        ]
+        low_stock_count = stock_scope.annotate(
+            available_units=ExpressionWrapper(
+                F('quantity') - F('reserved_quantity'), output_field=IntegerField(),
+            ),
+            alert_threshold=Coalesce(
+                'product__low_stock_threshold', 'variant__product__low_stock_threshold',
+            ),
+        ).filter(available_units__lte=F('alert_threshold')).count()
+        active_orders = order_scope.filter(
+            order_type__in=[Order.OrderType.ONLINE_DELIVERY, Order.OrderType.ONLINE_PICKUP],
+            status__in=active_order_statuses,
+        ).count()
+        pending_returns = return_scope.filter(status=ReturnRequest.ReturnStatus.PENDING).count()
+        attention = [
+            {'label': 'Orders awaiting fulfilment', 'count': active_orders,
+             'url': reverse('logistics:fulfilment-workspace'),
+             'help': 'Orders that have not reached a final customer handover state.', 'tone': 'blue'},
+            {'label': 'Low-stock lines', 'count': low_stock_count,
+             'url': reverse('inventory:inventory-workspace'),
+             'help': 'Available branch stock at or below the product threshold.', 'tone': 'orange'},
+            {'label': 'Returns pending review', 'count': pending_returns,
+             'url': reverse('marketing:operations-workspace'),
+             'help': 'Return requests awaiting a manager decision and stock-condition outcome.', 'tone': 'blue'},
+            {'label': 'Payments needing reconciliation',
+             'count': payment_scope.filter(status=MpesaTransaction.Status.RECONCILIATION_REQUIRED).count(),
+             'url': reverse('admin:payments_mpesatransaction_changelist') if user.is_superuser else reverse('report_workspace:operations'),
+             'help': 'Payment evidence that did not match automatically and requires review.', 'tone': 'orange'},
+        ]
+        context.update({
+            'is_super_admin': user.role == User.Role.SUPER_ADMIN,
+            'branches': branches,
+            'selected_branch': selected_branch,
+            'scope_label': selected_branch.name if selected_branch else 'All branches',
+            'attention': attention,
+            'summary': {
+                'active_orders': active_orders, 'low_stock': low_stock_count,
+                'open_shifts': shift_scope.filter(status=POSShift.Status.OPEN).count(),
+                'pending_returns': pending_returns,
+            },
+            'secondary_attention': {
+                'transfers': transfer_scope.filter(status__in=[
+                    TransferRequest.Status.APPROVED, TransferRequest.Status.DISPATCHED,
+                    TransferRequest.Status.PARTIALLY_RECEIVED,
+                ]).count(),
+                'notifications': notification_scope.filter(status=Notification.Status.MANUAL_FOLLOWUP).count(),
+                'shift_reviews': reconciliation_scope.filter(
+                    requires_manager_review=True, is_verified_by_manager=False,
+                ).count(),
+                'reviews': ProductReview.objects.filter(is_current=True, moderated_at__isnull=True).count(),
+            },
+            'recent_activity': activity_scope.order_by('-created_at')[:10],
+        })
         return context
 
 

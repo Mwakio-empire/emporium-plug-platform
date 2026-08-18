@@ -206,7 +206,7 @@ class AddToCartTests(CartTestDataMixin, TestCase):
         })
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn('greater than zero', response.json()['error'])
+        self.assertIn('at least one', response.json()['error'])
 
     def test_add_negative_quantity_rejected(self):
         """
@@ -219,7 +219,7 @@ class AddToCartTests(CartTestDataMixin, TestCase):
         })
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn('greater than zero', response.json()['error'])
+        self.assertIn('at least one', response.json()['error'])
 
     def test_add_non_numeric_quantity_rejected(self):
         """
@@ -246,7 +246,7 @@ class AddToCartTests(CartTestDataMixin, TestCase):
         )
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn('Invalid JSON', response.json()['error'])
+        self.assertIn('Refresh the page', response.json()['error'])
 
     def test_add_missing_fields_rejected(self):
         """
@@ -269,7 +269,7 @@ class AddToCartTests(CartTestDataMixin, TestCase):
         })
 
         self.assertEqual(response.status_code, 400)
-        self.assertIn('variant or product', response.json()['error'])
+        self.assertIn('identify that product', response.json()['error'])
 
     def test_add_quantity_exceeding_stock_gets_capped_with_warning(self):
         """
@@ -285,7 +285,10 @@ class AddToCartTests(CartTestDataMixin, TestCase):
 
         self.assertTrue(data['success'])
         self.assertIn('warning', data)
-        self.assertIn('capped', data['warning'])
+        self.assertEqual(
+            data['warning'],
+            'Quantity reduced to what is currently available.',
+        )
 
         detail_response = self.client.get(reverse('cart:detail'))
         detail_data = detail_response.json()

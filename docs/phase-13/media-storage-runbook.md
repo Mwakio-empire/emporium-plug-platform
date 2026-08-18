@@ -3,6 +3,10 @@
 Catalog product and gallery images use Cloudinary. Local filesystem media is
 permitted only in development and tests. Staging and production refuse to start
 without either `CLOUDINARY_URL` or all three individual Cloudinary credentials.
+Staging and production also set Django's default media storage to
+`cloudinary_storage.storage.MediaCloudinaryStorage`, so a future ordinary
+`FileField` or `ImageField` cannot silently write required media to Render's
+ephemeral application filesystem. Static assets remain on WhiteNoise.
 
 ## Secret configuration
 

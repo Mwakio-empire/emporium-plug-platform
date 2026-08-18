@@ -65,3 +65,14 @@ class RenderProductionMediaBlueprintTests(SimpleTestCase):
 
     def test_cloudinary_secret_is_required_by_every_process_service(self):
         self.assertEqual(self.blueprint.count('key: CLOUDINARY_URL'), 3)
+
+    def test_production_uses_live_payment_mode_and_transactional_email(self):
+        self.assertIn('key: MPESA_ENVIRONMENT\n        value: production', self.blueprint)
+        self.assertNotIn('key: MPESA_ENVIRONMENT\n        value: sandbox', self.blueprint)
+        self.assertIn('key: TRANSACTIONAL_EMAIL_ENABLED\n        value: "True"', self.blueprint)
+
+    def test_production_requires_encrypted_off_site_backup_configuration(self):
+        self.assertIn('key: BACKUP_ENABLED\n        value: "True"', self.blueprint)
+        self.assertIn('key: BACKUP_S3_BUCKET', self.blueprint)
+        self.assertIn('key: AWS_ACCESS_KEY_ID', self.blueprint)
+        self.assertIn('key: AWS_SECRET_ACCESS_KEY', self.blueprint)

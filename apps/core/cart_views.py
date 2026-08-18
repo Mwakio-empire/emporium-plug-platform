@@ -26,7 +26,7 @@ def _parse_json_body(request):
         return json.loads(request.body), None
     except (json.JSONDecodeError, TypeError) as e:
         logger.warning(f"Cart view received invalid JSON body: {e}")
-        return None, JsonResponse({'success': False, 'error': 'Invalid JSON.'}, status=400)
+        return None, JsonResponse({'success': False, 'error': 'We could not read that cart request. Refresh the page and try again.'}, status=400)
 
 
 class StorefrontCartDetailView(View):
@@ -78,7 +78,7 @@ class StorefrontAddToCartView(View):
         except (ValueError, TypeError):
             logger.warning(f"Add-to-cart rejected: non-numeric quantity {body.get('quantity')!r}")
             return JsonResponse(
-                {'success': False, 'error': 'quantity must be a whole number.'},
+                {'success': False, 'error': 'Enter quantity as a whole number.'},
                 status=400,
             )
 
@@ -87,14 +87,14 @@ class StorefrontAddToCartView(View):
         if quantity <= 0:
             logger.warning(f"Add-to-cart rejected: non-positive quantity {quantity}")
             return JsonResponse(
-                {'success': False, 'error': 'quantity must be greater than zero.'},
+                {'success': False, 'error': 'Enter a quantity of at least one.'},
                 status=400,
             )
 
         if not item_type or not item_id:
             logger.warning("Add-to-cart rejected: missing type or id.")
             return JsonResponse(
-                {'success': False, 'error': 'type and id are required.'},
+                {'success': False, 'error': 'Choose a product and try again.'},
                 status=400,
             )
 
@@ -107,7 +107,7 @@ class StorefrontAddToCartView(View):
         else:
             logger.warning(f"Add-to-cart rejected: unknown type {item_type!r}")
             return JsonResponse(
-                {'success': False, 'error': 'type must be variant or product.'},
+                {'success': False, 'error': 'We could not identify that product. Refresh the page and try again.'},
                 status=400,
             )
 
@@ -139,7 +139,7 @@ class StorefrontUpdateCartView(View):
         if not cart_key or raw_quantity is None:
             logger.warning("Update-cart rejected: missing key or quantity.")
             return JsonResponse(
-                {'success': False, 'error': 'key and quantity are required.'},
+                {'success': False, 'error': 'Choose a cart item and enter its quantity.'},
                 status=400,
             )
 
@@ -148,7 +148,7 @@ class StorefrontUpdateCartView(View):
         except (ValueError, TypeError):
             logger.warning(f"Update-cart rejected: non-numeric quantity {raw_quantity!r}")
             return JsonResponse(
-                {'success': False, 'error': 'quantity must be a whole number.'},
+                {'success': False, 'error': 'Enter quantity as a whole number.'},
                 status=400,
             )
 
@@ -180,7 +180,7 @@ class StorefrontRemoveFromCartView(View):
         cart_key = body.get('key')
         if not cart_key:
             logger.warning("Remove-from-cart rejected: missing key.")
-            return JsonResponse({'success': False, 'error': 'key is required.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Choose an item to remove from your cart.'}, status=400)
 
         cart = UnifiedSessionCartService(request)
         removed = cart.remove_item(cart_key)

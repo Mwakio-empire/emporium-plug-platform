@@ -1,5 +1,73 @@
 # Phase 15 verification record
 
+## Production re-audit update — 2026-08-16
+
+- Authoritative business context and active runtime paths were rechecked rather
+  than relying on integration file presence.
+- Django checks, migration drift, Python compilation, dependency consistency,
+  Python/production-JavaScript vulnerability audits and the frontend build pass.
+- Complete SQLite regression: **718 passed, 1 expected PostgreSQL row-lock
+  feature skip, 0 failed**.
+- Repeatable PostgreSQL release verification applies migrations, checks drift,
+  compiles and runs the complete suite without printing protected local
+  credentials: **718 passed, 0 skipped, 0 failed**.
+- Focused PostgreSQL final-unit locking, payment-idempotency/polling and
+  stock-restoration regression: **31 passed, 0 skipped, 0 failed**.
+- The ordinary local `.env` remains SQLite for lightweight development; release
+  evidence must use `start_local_postgres.ps1 -VerifyRelease` on the committed SHA.
+- Deployed Django default media storage now uses Cloudinary; tests remain
+  synthetic/local. Focused deployed-setting suite: **15 passed**.
+- Bandit's medium/high CI command passes after reviewing two findings: ordinary
+  option-validation text was rewritten to avoid an SQL false positive, and the
+  fixed Africa's Talking HTTPS URL has a narrowly documented `B310` exception.
+- GitHub Actions now provisions PostgreSQL 17 and Redis 7 instead of using
+  SQLite for the exact release-commit test job.
+- Demo catalogue and simulated review commands both fail closed in production;
+  the catalogue production guard has dedicated regression coverage.
+- Initial GitHub run `32122998782` correctly stopped after finding four 2026
+  vulnerabilities in `sqlparse==0.5.5`. The dependency was upgraded to fixed
+  `0.6.0`; `pip check`, `pip-audit` and the complete 718-test PostgreSQL suite
+  passed locally after the upgrade before the corrective CI run below.
+- Corrective GitHub run `32123877217` passed every step on exact release-code
+  SHA `d8cc68ea4e864a99399b0923483ea663661b9a3e`, including PostgreSQL 17,
+  Redis 7, dependency audits, Bandit, Render schema validation, all 718 Django
+  tests, `collectstatic`, npm production audit and the frontend build.
+- The re-audit identified unscheduled logical backups, optional production
+  Sentry, disabled report email, unprovisioned Render resources and uncompleted
+  provider/UAT/security gates. They remain blockers; no readiness label was
+  inflated to hide them.
+
+## Pre-production hardening update — 2026-08-09
+
+- Inventory transfer receipt locks source and destination balances in stable
+  branch-ID order to prevent opposite-direction PostgreSQL deadlocks.
+- SMS and transactional-email attempts use a durable delivery lease. Concurrent
+  tasks do not contact the provider twice; an expired lease with unknown provider
+  outcome enters manual follow-up instead of being blindly resent.
+- Production refuses to start with M-Pesa sandbox mode, disabled transactional
+  email, incomplete Daraja credentials or a disabled off-site backup job.
+- Checkout, tracking and authentication utility pages emit
+  `noindex,nofollow`; public catalogue and policy content remains crawlable.
+- `manage.py check`, migration drift and Python compilation passed. Migration
+  `notifications.0004` is applied locally.
+- Complete SQLite regression: **710 run, 709 passed, 1 expected SQLite
+  row-lock feature skip, 0 failed**.
+- Complete PostgreSQL regression: **710 passed, 0 skipped, 0 failed**. It exposed
+  and drove correction of nullable-outer-join row locks in restock alerts and
+  delivery-quote acceptance, plus a migration test that relied on flushed county
+  seed data. The focused modules and final global PostgreSQL run all pass.
+- In-app browser QA passed on the default desktop viewport and 390×844 mobile:
+  storefront rendering, product search, checkout privacy/layout and the sign-in
+  password visibility control. No browser console warnings/errors were recorded.
+- `pip-audit` and `npm audit --omit=dev` reported no known vulnerabilities;
+  Bandit reported no high-severity findings. Python dependencies remain exactly
+  version-pinned but are not yet hash-locked.
+- Production-style `check --deploy` passes with only the deliberately deferred
+  HSTS include-subdomains/preload warnings; those controls remain off until every
+  real subdomain is verified as HTTPS-only.
+- The exact release revision still requires PostgreSQL, rendered browser,
+  provider, recovery, load, external security and client-UAT evidence.
+
 Date: 2026-07-26
 
 ## Documentation checks
@@ -9,7 +77,7 @@ Date: 2026-07-26
 - Phase 15 files contain no known mojibake markers, placeholder claims or embedded credentials.
 - Guides reference implemented routes/workflows and distinguish local verification from external certification.
 - Known limitations, deferred features, client decisions and release gates are explicit.
-- Current API, release, UAT, changelog and traceability documents agree that public launch checkout creates S18-pickup orders only; town parcels use the non-order-creating WhatsApp handoff.
+- This dated 26 July statement has been superseded by the 1 August update below: S18 pickup remains default, while town parcels now use a non-order quote request with WhatsApp as delayed-response/support fallback.
 - Older delivery-selector records are retained as dated historical evidence and explicitly point readers to the superseding launch policy.
 - All 48 concrete paths sampled from the API reference resolve through Django's active URL configuration.
 
@@ -30,6 +98,18 @@ Date: 2026-07-26
 | Full automated suite | 519 run: 518 passed, 1 expected SQLite skip for PostgreSQL row locking |
 
 Expected external gates are recorded in the release checklist; they are not silently converted into local passes.
+
+## Delivery quote and controlled-stacking update — 2026-08-01
+
+- S18 pickup remains selected by default. “Send to my town” creates a protected quote request without creating an order, initiating payment, reserving stock or redeeming a coupon.
+- Quote timing implements Monday-Saturday 8:00 AM-6:00 PM Africa/Nairobi, a 30-working-minute response target, configured closure dates and a 24-hour acceptance window.
+- Commercial quote publication is branch-scoped and restricted at both the view and service layers to branch managers/super admins. The workspace uses the unified Operations navigation.
+- Acceptance rehydrates server-owned product identities, rechecks current stock/pricing/coupon rules, requires the current total to be explicitly reconfirmed, and creates one prepaid M-Pesa parcel order/reservation under row locks.
+- Coupon rules are controlled: one coupon; quantity pricing never stacks; discounted/flash items reject coupons unless the coupon explicitly permits them; savings and transport fee are displayed separately.
+- Focused checkout/marketing/logistics/notification suite: **151 passed**.
+- Final complete suite: **654 passed, 1 expected `select_for_update` feature skip, 0 failed**.
+- `manage.py check`, migration drift, Python compilation and both checkout JavaScript syntax checks passed. Migrations `marketing.0004`, `orders.0014` and `orders.0015` are applied locally.
+- Local HTTP smoke checks returned 200 for the storefront, checkout and delivery-quote JavaScript asset. The in-app browser policy blocked automated control of the localhost page, so final desktop/mobile rendered UAT remains an explicit manual gate rather than a claimed pass.
 
 ## Item 10 update — 2026-07-28
 

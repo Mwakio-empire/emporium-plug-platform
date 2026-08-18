@@ -3,6 +3,11 @@
 from django.contrib import admin
 from django.urls import path, include
 
+admin.site.site_header = 'Emporium Plug system data'
+admin.site.site_title = 'Emporium Plug administration'
+admin.site.index_title = 'Controlled records and configuration'
+admin.site.enable_nav_sidebar = False
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -18,8 +23,7 @@ urlpatterns = [
     path('inventory/', include('inventory.urls')),
 
     # --- Orders (HTML views — POS receipt, admin order views etc.) ---
-    # Kept without namespace because orders.urls has no app_name defined.
-    # If you add app_name='orders' to orders/urls.py later, add namespace here.
+    # Public HTML and staff order views share the URL names defined by orders.urls.
     path('orders/', include('orders.urls')),
 
     # --- Notifications ---
@@ -37,7 +41,7 @@ urlpatterns = [
     # --- Storefront cart (session-based, no auth required) ---
     path('cart/', include('core.cart_urls', namespace='cart')),
 
-    # --- Checkout API (auth required) ---
+    # --- Checkout API (guest and authenticated customer flows) ---
     path('api/checkout/', include('orders.checkout_urls', namespace='checkout')),
 
     # --- Order tracking API ---

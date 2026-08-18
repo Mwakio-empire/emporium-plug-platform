@@ -1,16 +1,14 @@
 {% extends 'base.html' %}
 {% block title %}Activate Staff Account - EmporiumPlug{% endblock %}
+{% block robots %}<meta name="robots" content="noindex,nofollow">{% endblock %}
 {% block content %}
 <div class="max-w-md mx-auto mt-12 bg-white rounded-xl shadow-sm border border-gray-100 p-8">
     <h1 class="text-2xl font-black text-slate-900">Activate staff account</h1>
     <p class="mt-2 mb-6 text-sm text-gray-600">
         Enter the phone number or email used for your invitation, the six-digit code, and a new password.
     </p>
-    {% if form.non_field_errors %}
-    <div class="mb-4 rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-        {{ form.non_field_errors }}
-    </div>
-    {% endif %}
+    <p class="mb-4 text-xs text-gray-500" data-password-policy>Use at least 15 characters. A memorable passphrase works well.</p>
+    {% include 'partials/form_non_field_errors.html' %}
     <form method="post" class="space-y-4" novalidate>
         {% csrf_token %}
         {% for field in form %}
@@ -30,3 +28,5 @@
     </p>
 </div>
 {% endblock %}
+{% load static %}
+{% block extra_js %}<script src="{% static 'users/auth.js' %}?v=20260731.2" defer></script>{% endblock %}

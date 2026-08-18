@@ -20,3 +20,265 @@
     outline-offset: 2px;
   }
 }
+
+@layer components {
+  .cancel-order-dialog {
+    width: 92vw;
+    max-width: 30rem;
+  }
+
+  .cancel-order-confirm {
+    background-color: #b91c1c;
+  }
+
+  .cancel-order-confirm:hover {
+    background-color: #991b1b;
+  }
+
+  .cancel-order-confirm:disabled {
+    cursor: wait;
+    opacity: 0.65;
+  }
+
+  .product-image-shell {
+    position: relative;
+    isolation: isolate;
+    background: #f1f5f9;
+  }
+
+  .product-image-option {
+    border-color: #cbd5e1;
+    transition: border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
+  }
+
+  .product-image-option:hover {
+    border-color: #2563eb;
+    transform: translateY(-1px);
+  }
+
+  .product-image-option[aria-pressed="true"] {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px #dbeafe, 0 0 0 3px #2563eb;
+  }
+
+  .variant-picker {
+    display: grid;
+    gap: 1rem;
+    padding: 1rem 0;
+    border-top: 1px solid #e2e8f0;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  .variant-option-group {
+    display: grid;
+    gap: 0.55rem;
+  }
+
+  .variant-option-legend {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    color: #0f172a;
+    font-size: 0.8125rem;
+    font-weight: 800;
+  }
+
+  .variant-selected-value {
+    color: #475569;
+    font-weight: 600;
+  }
+
+  .variant-choice-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .variant-choice {
+    position: relative;
+    display: inline-grid;
+    place-items: center;
+    min-height: 2.35rem;
+    border: 1px solid #cbd5e1;
+    background: #fff;
+    color: #334155;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    line-height: 1;
+    transition: border-color 150ms ease, box-shadow 150ms ease, color 150ms ease,
+      background-color 150ms ease, transform 150ms ease;
+  }
+
+  .variant-choice:hover:not(:disabled) {
+    border-color: #2563eb;
+    transform: translateY(-1px);
+  }
+
+  .variant-choice--text {
+    min-width: 2.75rem;
+    border-radius: 0.45rem;
+    padding: 0.55rem 0.8rem;
+  }
+
+  .variant-choice--colour {
+    width: 2.35rem;
+    border-radius: 0.65rem;
+    padding: 0.22rem;
+  }
+
+  .variant-colour-swatch {
+    width: 100%;
+    height: 100%;
+    min-height: 1.75rem;
+    border-radius: 0.45rem;
+    filter: drop-shadow(0 0 0.4px rgba(15, 23, 42, 0.65));
+  }
+
+  .variant-choice-check {
+    position: absolute;
+    inset: 50% auto auto 50%;
+    width: 1rem;
+    height: 1rem;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.75);
+    color: white;
+    filter: drop-shadow(0 1px 1px rgba(15, 23, 42, 0.8));
+    transition: opacity 150ms ease, transform 150ms ease;
+  }
+
+  .variant-choice-check path {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .variant-choice[data-selected="true"] {
+    border-color: #2563eb;
+    background: #eff6ff;
+    color: #1d4ed8;
+    box-shadow: 0 0 0 1px #2563eb;
+  }
+
+  .variant-choice--colour[data-selected="true"] .variant-choice-check {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+
+  .variant-choice[data-stock-state="sold-out"]:not([data-selected="true"]) {
+    color: #94a3b8;
+    background: linear-gradient(to top right, transparent 48%, #cbd5e1 49%, #cbd5e1 51%, transparent 52%);
+  }
+
+  .variant-choice:disabled {
+    cursor: not-allowed;
+    opacity: 0.35;
+  }
+
+  .variant-select {
+    width: min(100%, 20rem);
+    border: 1px solid #cbd5e1;
+    border-radius: 0.65rem;
+    background: white;
+    padding: 0.65rem 2.25rem 0.65rem 0.75rem;
+    color: #0f172a;
+    font-size: 0.875rem;
+    font-weight: 650;
+  }
+
+  .variant-selection-message {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    min-height: 1.25rem;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .variant-stock-dot {
+    width: 0.5rem;
+    height: 0.5rem;
+    flex: none;
+    border-radius: 9999px;
+    background: #10b981;
+  }
+
+  .variant-selection-message[data-state="sold-out"] {
+    color: #be123c;
+  }
+
+  .variant-selection-message[data-state="sold-out"] .variant-stock-dot,
+  .variant-selection-message[data-state="unavailable"] .variant-stock-dot {
+    background: #e11d48;
+  }
+
+  @media (max-width: 639px) {
+    .variant-picker {
+      gap: 0.85rem;
+      padding: 0.85rem 0;
+    }
+
+    .variant-choice {
+      min-height: 2.5rem;
+    }
+
+    .variant-choice--colour {
+      width: 2.5rem;
+    }
+  }
+
+  .progressive-images-enabled .product-image-shell[data-image-shell]::before {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    content: "";
+    background: linear-gradient(100deg, #f1f5f9 20%, #e2e8f0 38%, #f1f5f9 56%);
+    background-size: 220% 100%;
+    animation: product-image-shimmer 1.15s linear infinite;
+    transition: opacity 180ms ease;
+    pointer-events: none;
+  }
+
+  .progressive-images-enabled .product-image-shell[data-image-shell] [data-progressive-image] {
+    opacity: 0;
+    transition: opacity 220ms ease, transform 300ms ease;
+  }
+
+  .progressive-images-enabled .product-image-shell[data-image-shell].is-loaded::before,
+  .progressive-images-enabled .product-image-shell[data-image-shell].is-error::before {
+    opacity: 0;
+    animation: none;
+  }
+
+  .progressive-images-enabled .product-image-shell[data-image-shell].is-loaded [data-progressive-image] {
+    opacity: 1;
+  }
+
+  .progressive-images-enabled .product-image-shell[data-image-shell].is-error::after {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    padding: 1rem;
+    content: "Image unavailable";
+    color: #64748b;
+    font-size: 0.75rem;
+    text-align: center;
+  }
+}
+
+@keyframes product-image-shimmer {
+  to { background-position-x: -220%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressive-images-enabled .product-image-shell[data-image-shell]::before {
+    animation: none;
+  }
+
+  .progressive-images-enabled .product-image-shell[data-image-shell] [data-progressive-image] {
+    transition: none;
+  }
+}

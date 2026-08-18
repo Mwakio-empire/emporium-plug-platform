@@ -7,6 +7,7 @@ from . import workspace_views
 app_name = 'logistics'
 
 urlpatterns = [
+    path('towns/', views.TownListView.as_view(), name='towns'),
     path('workspace/', workspace_views.FulfilmentWorkspaceView.as_view(), name='fulfilment-workspace'),
     path('workspace/orders/<int:order_id>/packing/start/', workspace_views.PackingStartView.as_view(), name='packing-start'),
     path('workspace/packing/<int:checklist_id>/lines/<int:line_id>/check/', workspace_views.PackingLineCheckView.as_view(), name='packing-line-check'),

@@ -168,9 +168,11 @@ class FulfilmentService:
         cls, *, order_id, actor, parcel_reference, actual_transport_cost,
         vehicle_registration='', operator_contact='', dispatch_note='',
     ):
-        order = Order.objects.select_for_update().select_related('parcel_destination').get(pk=order_id)
+        order = Order.objects.select_for_update(of=('self',)).select_related(
+            'parcel_destination', 'delivery_quote_request',
+        ).get(pk=order_id)
         cls._assert_branch_actor(actor, order.branch_id)
-        if not order.parcel_destination_id or order.order_type != Order.OrderType.ONLINE_DELIVERY:
+        if not order.is_town_parcel:
             raise ValidationError('This order is not a parcel-to-town order.')
         if order.status != Order.Status.PACKED:
             raise ValidationError('Only a packed parcel can be dispatched.')

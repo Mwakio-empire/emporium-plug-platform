@@ -21,6 +21,7 @@ class AuditLog(models.Model):
             LOGIN_FAILED = 'LOGIN_FAILED', 'Failed Login Attempt'
             LOGOUT = 'LOGOUT', 'User Session Logout'
             PASSWORD_RESET = 'PASSWORD_RESET', 'Password Reset Completed'
+            PASSWORD_CHANGED = 'PASSWORD_CHANGED', 'Authenticated Password Changed'
             STAFF_ACCOUNT_CREATED = 'STAFF_ACCOUNT_CREATED', 'Staff Account Created'
             STAFF_ACCOUNT_ACTIVATED = 'STAFF_ACCOUNT_ACTIVATED', 'Staff Account Activated'
             STAFF_INVITE_RESENT = 'STAFF_INVITE_RESENT', 'Staff Invitation Resent'

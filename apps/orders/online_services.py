@@ -6,7 +6,7 @@
 # Parcel destination and pickup slot are persisted on Order and are mutually
 # exclusive. Walk-in orders cannot carry either fulfilment choice.
 
-import random
+import secrets
 import string
 from decimal import Decimal
 from django.db import transaction
@@ -49,6 +49,8 @@ class OnlineOrderService:
         idempotency_key=None,
         request_fingerprint: str = '',
         guest_session_hash: str = '',
+        sales_channel: str = Order.SalesChannel.WEBSITE,
+        processed_by=None,
     ) -> Order:
         """
         Creates an online order from the session cart.
@@ -83,7 +85,13 @@ class OnlineOrderService:
                              stock changed since cart was built
         """
         cart = UnifiedSessionCartService(request)
-        actor = checkout_actor(customer)
+        actor = processed_by or checkout_actor(customer)
+        if sales_channel not in Order.SalesChannel.values:
+            raise ValidationError('Unknown sales channel.')
+        if sales_channel == Order.SalesChannel.WHATSAPP_ASSISTED:
+            from users.models import User
+            if not processed_by or processed_by.role not in User.PRIVILEGED_ROLES:
+                raise ValidationError('A signed-in staff member must record an assisted order.')
 
         if idempotency_key:
             existing = Order.objects.filter(
@@ -169,14 +177,19 @@ class OnlineOrderService:
         # which now uses Sum() aggregation per the Block E fixes)
         stock_check = cart.revalidate_stock(branch=branch)
         if not stock_check['valid']:
-            issues = "; ".join(
+            stock_issues = "; ".join(
                 f"{i['name']}: requested {i['requested']}, "
                 f"only {i['available']} available"
                 for i in stock_check['issues']
             )
+            minimum_issues = "; ".join(
+                f"add {i['shortfall']} more {i['name']} "
+                f"(minimum {i['required']})"
+                for i in stock_check.get('minimum_order_issues', [])
+            )
+            details = "; ".join(part for part in (stock_issues, minimum_issues) if part)
             raise ValidationError(
-                f"Stock changed since items were added to your cart. "
-                f"Please update your cart and try again. Issues: {issues}"
+                f"Please review your cart before checkout: {details}."
             )
 
         parcel_weight = None
@@ -203,6 +216,7 @@ class OnlineOrderService:
             branch=branch,
             customer=customer,
             order_type=order_type,
+            sales_channel=sales_channel,
             customer_phone=normalized_phone,
             customer_name=customer_name.strip(),
             customer_email=customer_email.strip().lower(),
@@ -224,8 +238,8 @@ class OnlineOrderService:
             guest_session_hash=guest_session_hash,
         )
 
-        # 5. Pickup code -- only field that persists ANY pickup-related
-        # data on the order (the pickup_slot itself is not stored)
+          # 5. Generate a collection code only for pickup fulfilment. The
+          # selected pickup slot is already stored on the order above.
         if order_type == Order.OrderType.ONLINE_PICKUP:
             order.pickup_code = OnlineOrderService._generate_pickup_code()
             order.save(update_fields=['pickup_code'])
@@ -252,6 +266,10 @@ class OnlineOrderService:
                 product=item['product'] if item['type'] == 'product' else None,
                 quantity=item['quantity'],
                 unit_price=item['price'],
+                regular_unit_price=item['regular_price'],
+                pricing_source=item['pricing_source'],
+                quantity_tier_minimum=item['quantity_tier_minimum'],
+                quantity_discount_percentage=item['quantity_discount_percentage'],
             )
             order_item.full_clean()
             order_item.save()
@@ -278,6 +296,10 @@ class OnlineOrderService:
         # propagates and rolls back this entire @transaction.atomic block
         # (stock deductions included) — an invalid code must never silently
         # produce an uncoupled order.
+        if coupon_code and any(item['wholesale_applied'] for item in cart_items):
+            raise ValidationError(
+                'A quantity price is already applied. Coupons cannot be combined with quantity pricing.'
+            )
         if coupon_code:
             from marketing.services import PromotionService
             order = PromotionService.validate_and_apply_coupon_campaign(order, coupon_code)
@@ -289,11 +311,11 @@ class OnlineOrderService:
             old_status='',
             new_status=initial_status,
             note=(
-                f"Online {order_type} order placed -- Cash on Delivery, "
+                f"{'WhatsApp-assisted' if sales_channel == Order.SalesChannel.WHATSAPP_ASSISTED else 'Online'} pickup order recorded -- Cash on collection, "
                 f"payment due at "
                 f"{'delivery' if order_type == Order.OrderType.ONLINE_DELIVERY else 'pickup'}."
                 if is_cash_on_delivery else
-                f"Online {order_type} order placed."
+                f"{'WhatsApp-assisted' if sales_channel == Order.SalesChannel.WHATSAPP_ASSISTED else 'Online'} {order_type} order placed."
             ),
             changed_by=actor,
         )
@@ -302,13 +324,13 @@ class OnlineOrderService:
         order_id_str = str(order.id)
         transaction.on_commit(lambda: cart.flush_entire_cart())
         transaction.on_commit(
-            lambda: OnlineOrderService._trigger_order_placed_sms(order_id_str)
+            lambda: OnlineOrderService._trigger_order_placed_notifications(order_id_str)
         )
 
         return order
 
     @staticmethod
-    def _trigger_order_placed_sms(order_id: str):
+    def _trigger_order_placed_notifications(order_id: str):
         """
         Isolated in its own method so nothing in the notification path can
         ever break order creation -- this runs after the transaction has
@@ -322,16 +344,21 @@ class OnlineOrderService:
         still be considered successfully placed either way.
         """
         import logging
-        try:
-            from notifications.tasks import send_order_placed_sms
-            send_order_placed_sms.delay(order_id)
-        except Exception as e:
-            logging.getLogger(__name__).error(
-                f"Order {order_id} created successfully, but the "
-                f"order-placed SMS could not be queued: {e}"
-            )
+        from notifications.tasks import send_order_placed_email, send_order_placed_sms
+        for channel, task in (
+            ('SMS', send_order_placed_sms),
+            ('email', send_order_placed_email),
+        ):
+            try:
+                task.delay(order_id)
+            except Exception as exc:
+                logging.getLogger(__name__).error(
+                    'Order %s committed, but its %s notification could not be queued | ExceptionType=%s',
+                    order_id, channel, type(exc).__name__,
+                )
 
     @staticmethod
     def _generate_pickup_code():
-        """6-character alphanumeric pickup code."""
-        return ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        """Generate a cryptographically secure six-character collection code."""
+        alphabet = string.ascii_uppercase + string.digits
+        return ''.join(secrets.choice(alphabet) for _ in range(6))

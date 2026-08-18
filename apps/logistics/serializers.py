@@ -2,7 +2,20 @@
 # NEW FILE — confirmed missing from logistics/ per Root_Directory.md structure.
 
 from rest_framework import serializers
-from .models import DeliveryZone, DeliveryAssignment, RiderProfile, PickupSlot
+from .models import (
+    DeliveryAssignment,
+    DeliveryZone,
+    KenyaTown,
+    PickupSlot,
+    RiderProfile,
+)
+
+
+class KenyaTownLookupSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KenyaTown
+        fields = ['id', 'name']
+        read_only_fields = fields
 
 
 class DeliveryZoneSerializer(serializers.ModelSerializer):

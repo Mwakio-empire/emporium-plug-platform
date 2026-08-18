@@ -1,15 +1,23 @@
 {% extends 'base.html' %}
 {% block title %}Staff Verification - EmporiumPlug{% endblock %}
+{% block robots %}<meta name="robots" content="noindex,nofollow">{% endblock %}
 {% block content %}
 <div class="max-w-md mx-auto mt-12 bg-white rounded-xl shadow-sm border border-gray-100 p-8">
     <h1 class="text-2xl font-black text-slate-900 mb-2">Staff 2FA Verification</h1>
-    <p class="text-sm text-gray-500 mb-6">We sent a security code to <span class="font-bold text-gray-700">{{ phone }}</span>.</p>
+    {% if delivery_enabled %}
+        <p class="text-sm text-gray-500 mb-6">{{ delivery_message }}</p>
+    {% else %}
+        <div class="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900" role="alert">
+            Code delivery is not configured for this test environment. Ask the administrator to enable transactional email or the approved SMS provider.
+        </div>
+    {% endif %}
+    {% include 'partials/form_non_field_errors.html' %}
     <form method="post" class="space-y-4">
         {% csrf_token %}
         <div>
-            <label class="block text-xs font-bold text-gray-600 mb-1">Verification Code</label>
+            <label for="{{ form.code.id_for_label }}" class="block text-xs font-bold text-gray-600 mb-1">Verification Code</label>
             {{ form.code }}
-            <p class="text-xs text-red-600 mt-1">{{ form.code.errors|striptags }}</p>
+            {% for error in form.code.errors %}<p class="mt-1 text-xs text-red-600">{{ error }}</p>{% endfor %}
         </div>
         <button type="submit" class="w-full bg-brand-600 hover:bg-brand-700 text-white font-bold py-2.5 rounded-lg transition">
             Verify & Continue
@@ -17,7 +25,7 @@
     </form>
     <form method="post" action="{% url 'accounts:resend-staff-otp' %}" class="mt-4 text-center">
         {% csrf_token %}
-        <button type="submit" class="text-xs text-brand-600 font-bold hover:underline">Didn't get a code? Resend</button>
+        <button type="submit" class="text-xs font-bold {% if delivery_enabled %}text-brand-600 hover:underline{% else %}cursor-not-allowed text-gray-400{% endif %}" {% if not delivery_enabled %}disabled aria-disabled="true" title="No OTP delivery provider is configured"{% endif %}>Didn't get a code? Resend</button>
     </form>
 </div>
 {% endblock %}

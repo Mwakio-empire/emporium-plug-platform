@@ -28,6 +28,10 @@ from core.views import (
     ReturnsPolicyPageView,
     TermsPageView,
     CategoryStorefrontView,
+    WishlistPageView,
+    WishlistToggleView,
+    RestockSubscribeView,
+    RestockCancelView,
 )
 from core.health import LivenessView, OperationalHealthView, ReadinessView
 
@@ -50,6 +54,10 @@ path('', StorefrontHomeLandingView.as_view(), name='storefront_home'),
     path('help/delivery-pickup/', DeliveryPickupPageView.as_view(), name='delivery_pickup'),
     path('help/returns/', ReturnsPolicyPageView.as_view(), name='returns_policy'),
     path('terms/', TermsPageView.as_view(), name='terms'),
+    path('wishlist/', WishlistPageView.as_view(), name='wishlist'),
+    path('wishlist/<int:product_id>/toggle/', WishlistToggleView.as_view(), name='wishlist_toggle'),
+    path('restock-alerts/subscribe/', RestockSubscribeView.as_view(), name='restock_subscribe'),
+    path('restock-alerts/<uuid:token>/cancel/', RestockCancelView.as_view(), name='restock_cancel'),
     # Session cart
     path('cart-gateway/', ReactiveCartActionGatewayView.as_view(), name='cart_action_gateway'),
     path('navbar-cart-counter/', NavbarCartCounterPartialView.as_view(), name='navbar_cart_counter'),

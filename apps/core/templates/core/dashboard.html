@@ -1,0 +1,28 @@
+{% extends 'management/base.html' %}
+{% block title %}Operations overview | Emporium Plug{% endblock %}
+{% block nav_overview %}is-active{% endblock %}
+{% block scope_control %}
+  {% if is_super_admin %}<form method="get" class="ep-branch-form"><label for="dashboard-branch">Branch</label><select id="dashboard-branch" name="branch" onchange="this.form.submit()"><option value="all" {% if not selected_branch %}selected{% endif %}>All branches</option>{% for branch in branches %}<option value="{{ branch.pk }}" {% if selected_branch.pk == branch.pk %}selected{% endif %}>{{ branch.name }}</option>{% endfor %}</select></form>{% else %}<span>{{ scope_label }}</span>{% endif %}
+{% endblock %}
+{% block content %}
+<div class="ep-dashboard-layout">
+  <div class="ep-dashboard-primary">
+    <header class="ep-page-header"><div><h1>Operations overview</h1><p>A clear view of current work across {{ scope_label }}.</p></div>{% if user.is_superuser %}<a class="ep-secondary-button" href="{% url 'admin:index' %}">Open system data <span aria-hidden="true">↗</span></a>{% endif %}</header>
+
+    <section class="ep-summary-grid" aria-label="Current operational totals">
+      <a href="{% url 'logistics:fulfilment-workspace' %}" class="ep-summary"><span class="ep-summary-mark ep-mark-blue">□</span><span><span class="ep-summary-label">Orders to fulfil <span class="ep-inline-help" tabindex="0" data-tooltip="Online orders still moving through payment, packing or handover." aria-label="What counts as an order to fulfil">?</span></span><strong>{{ summary.active_orders }}</strong><small>Open fulfilment</small></span></a>
+      <a href="{% url 'inventory:inventory-workspace' %}" class="ep-summary"><span class="ep-summary-mark ep-mark-orange">◇</span><span><span class="ep-summary-label">Low-stock lines <span class="ep-inline-help" tabindex="0" data-tooltip="Available quantity is at or below the product's configured threshold." aria-label="What counts as low stock">?</span></span><strong>{{ summary.low_stock }}</strong><small>Review inventory</small></span></a>
+      {% if user.branch %}<a href="{% url 'core:pos_workspace' %}" class="ep-summary"><span class="ep-summary-mark ep-mark-green">▣</span><span><span class="ep-summary-label">Open POS shifts</span><strong>{{ summary.open_shifts }}</strong><small>Open cash desk</small></span></a>{% else %}<div class="ep-summary"><span class="ep-summary-mark ep-mark-green">▣</span><span><span class="ep-summary-label">Open POS shifts</span><strong>{{ summary.open_shifts }}</strong><small>Across selected branches</small></span></div>{% endif %}
+      <a href="{% url 'marketing:operations-workspace' %}" class="ep-summary"><span class="ep-summary-mark ep-mark-blue">↩</span><span><span class="ep-summary-label">Returns pending</span><strong>{{ summary.pending_returns }}</strong><small>Review requests</small></span></a>
+    </section>
+
+    <div class="ep-work-grid">
+      <section class="ep-panel"><div class="ep-panel-heading"><h2>What needs attention</h2><span class="ep-inline-help" tabindex="0" data-tooltip="Counts are live and follow your selected branch scope." aria-label="Help for attention list">?</span></div><div class="ep-attention-list">{% for item in attention %}<a href="{{ item.url }}" class="ep-attention-row"><span class="ep-attention-symbol ep-attention-{{ item.tone }}">!</span><span class="ep-attention-copy"><strong>{{ item.count }} {{ item.label|lower }}</strong><small>{{ item.help }}</small></span><span class="ep-row-arrow" aria-hidden="true">›</span></a>{% endfor %}</div></section>
+
+      <section class="ep-panel ep-activity"><div class="ep-panel-heading"><h2>Recent order activity</h2><span class="ep-panel-note">Africa/Nairobi time</span></div><div class="ep-table-wrap"><table><thead><tr><th>Time</th><th>Order</th><th>Activity</th><th>Branch</th><th>Recorded by</th></tr></thead><tbody>{% for event in recent_activity %}<tr><td>{{ event.created_at|date:'H:i' }}</td><td><strong>{{ event.order.order_number }}</strong></td><td>{{ event.new_status|title }}</td><td>{{ event.order.branch.name }}</td><td>{{ event.changed_by.get_full_name|default:event.changed_by.username }}</td></tr>{% empty %}<tr><td colspan="5" class="ep-empty">No order activity has been recorded in this scope yet.</td></tr>{% endfor %}</tbody></table></div></section>
+    </div>
+  </div>
+
+  <aside class="ep-help-panel" aria-labelledby="dashboard-help-title"><h2 id="dashboard-help-title">Help</h2><h3>Start with the attention list</h3><p>It highlights work that may block customers or affect stock and payment accuracy.</p><h3>Branch selector</h3><p>Super administrators can switch between a single shop and the whole business. Branch managers remain locked to their assigned shop.</p><h3>System data</h3><p>Django administration is for controlled records and investigation. Complete sales, stock movements, fulfilment and reversals in their dedicated workspaces.</p><div class="ep-help-stats"><div><strong>{{ secondary_attention.transfers }}</strong><span>transfers moving</span></div><div><strong>{{ secondary_attention.notifications }}</strong><span>notification follow-ups</span></div><div><strong>{{ secondary_attention.shift_reviews }}</strong><span>shift reviews</span></div><div><strong>{{ secondary_attention.reviews }}</strong><span>reviews to moderate</span></div></div></aside>
+</div>
+{% endblock %}

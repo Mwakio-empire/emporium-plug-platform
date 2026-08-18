@@ -19,6 +19,7 @@ from users.permissions import has_role, is_rider
 
 User = get_user_model()
 
+
 @login_required
 def download_invoice_pdf_view(request, order_id):
     """
@@ -79,6 +80,10 @@ class CheckoutPageView(UserPassesTestMixin, TemplateView):
             is_active=True,
         ).first()
         cart_items = cart.get_cart_items_extended()
+        cart_total = cart.get_total_financial_cost()
+        cart_regular_total = sum(
+            item['regular_price'] * item['quantity'] for item in cart_items
+        )
         pickup_slots = list(
             PickupSlot.objects.filter(
                 is_active=True,
@@ -108,13 +113,16 @@ class CheckoutPageView(UserPassesTestMixin, TemplateView):
         ])
         context.update({
             'cart_items': cart_items,
-            'cart_total': cart.get_total_financial_cost(),
+            'cart_total': cart_total,
+            'cart_regular_total': cart_regular_total,
+            'cart_product_discount': max(0, cart_regular_total - cart_total),
             'cart_branch_id': cart.cart_branch_id,
             'pickup_available': bool(
                 cart_branch and cart_branch.offers_customer_pickup and pickup_slots
             ),
             'pickup_slots': pickup_slots,
             'delivery_whatsapp_url': build_whatsapp_url(delivery_message),
+            'hide_global_whatsapp': True,
             'checkout_idempotency_key': str(uuid.uuid4()),
             'customer_phone': (
                 str(self.request.user.phone_number)
@@ -140,4 +148,15 @@ class OrderTrackingPageView(TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['order_number'] = self.kwargs['order_number']
+        return context
+
+
+class DeliveryQuotePageView(TemplateView):
+    """Public shell; protected quote data is loaded through the owner-only API."""
+
+    template_name = 'orders/delivery_quote_status.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['quote_reference'] = self.kwargs['reference']
         return context

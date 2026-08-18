@@ -7,7 +7,7 @@
   <header>
     <p class="text-xs font-bold uppercase tracking-wider text-brand-700">Customer account</p>
     <h1 class="mt-2 text-3xl font-black text-slate-950">My account</h1>
-    <p class="mt-2 text-sm text-slate-600">Manage your name, view recent purchases and control your personal-data requests.</p>
+    <p class="mt-2 text-sm text-slate-600">Manage your details, account security, recent purchases and personal-data requests.</p>
   </header>
 
   <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
@@ -24,6 +24,8 @@
     </form>
 
     <aside class="space-y-4">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="font-bold text-slate-950">Account security</h2><p class="mt-2 text-sm text-slate-600">Change your password securely. Other browser sessions and API tokens will be invalidated.</p><a class="mt-4 inline-flex text-sm font-bold text-brand-700 underline" href="{% url 'accounts:password-change' %}">Change password</a></section>
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><h2 class="font-bold text-slate-950">Wishlist</h2><p class="mt-2 text-sm text-slate-600">Keep products you may want later. Availability and prices are checked again when you order.</p><a class="mt-4 inline-flex text-sm font-bold text-brand-700 underline" href="{% url 'core:wishlist' %}">View saved products</a></section>
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h2 class="font-bold text-slate-950">Privacy controls</h2>
         <p class="mt-2 text-sm leading-6 text-slate-600">Download linked data, request a correction, or ask us to delete or anonymise information that no longer needs to be retained.</p>

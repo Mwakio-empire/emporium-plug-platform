@@ -32,12 +32,17 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.cache import cache
 from django.contrib.auth.hashers import check_password
-from django.test import Client
+from django.test import Client, override_settings
 from django.utils import timezone
 from datetime import timedelta
 from unittest.mock import patch
 from branches.models import Branch
-from .forms import PasswordResetConfirmForm, PasswordResetRequestForm
+from .forms import (
+    AuthenticatedPasswordChangeForm,
+    CustomerSignupForm,
+    PasswordResetConfirmForm,
+    PasswordResetRequestForm,
+)
 from users.models import OTPVerification
 from users.otp_services import OTPService
 from users.tasks import purge_unverified_accounts
@@ -75,6 +80,77 @@ class PasswordResetFormTests(APITestCase):
         self.assertIn('new_password', form.errors)
 
 
+class AuthenticationUsabilityTests(APITestCase):
+
+    def test_customer_password_requires_fifteen_characters(self):
+        form = CustomerSignupForm({
+            'phone_number': '+254700001111',
+            'password': 'ThirteenChar1!',
+            'confirm_password': 'ThirteenChar1!',
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('password', form.errors)
+
+    def test_login_fields_have_labels_and_password_manager_metadata(self):
+        response = self.client.get(reverse('accounts:login'))
+
+        self.assertContains(response, 'for="id_identifier"')
+        self.assertContains(response, 'for="id_password"')
+        self.assertContains(response, 'autocomplete="username"')
+        self.assertContains(response, 'autocomplete="current-password"')
+
+    def test_signup_preserves_safe_destination_and_explains_password_policy(self):
+        response = self.client.get(reverse('accounts:signup'), {'next': '/wishlist/'})
+
+        self.assertContains(response, 'name="next" value="/wishlist/"')
+        self.assertContains(response, 'at least 15 characters')
+        self.assertContains(response, 'autocomplete="tel"')
+        self.assertContains(response, 'autocomplete="new-password"', count=2)
+
+
+class AuthenticatedPasswordChangeTests(APITestCase):
+
+    def setUp(self):
+        cache.clear()
+        self.user = User.objects.create_user(
+            username='password-change-customer',
+            phone_number='+254700001112',
+            email='password.change@example.test',
+            password='Original customer passphrase 2026',
+            role=User.Role.CUSTOMER,
+        )
+        self.client.force_login(self.user)
+
+    def test_form_rejects_incorrect_current_password(self):
+        form = AuthenticatedPasswordChangeForm({
+            'current_password': 'Incorrect customer passphrase',
+            'new_password': 'Replacement customer passphrase 2026',
+            'confirm_new_password': 'Replacement customer passphrase 2026',
+        }, user=self.user)
+
+        self.assertFalse(form.is_valid())
+        self.assertIn('current_password', form.errors)
+
+    def test_customer_changes_password_and_keeps_current_session(self):
+        response = self.client.post(reverse('accounts:password-change'), {
+            'current_password': 'Original customer passphrase 2026',
+            'new_password': 'Replacement customer passphrase 2026',
+            'confirm_new_password': 'Replacement customer passphrase 2026',
+        })
+
+        self.assertRedirects(response, reverse('accounts:profile'))
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('Replacement customer passphrase 2026'))
+        self.assertEqual(self.user.token_version, 1)
+        self.assertIsNotNone(self.user.last_password_change_at)
+        self.assertEqual(int(self.client.session['_auth_user_id']), self.user.pk)
+        self.assertTrue(AuditLog.objects.filter(
+            user=self.user,
+            action_type=AuditLog.ActionTypes.PASSWORD_CHANGED,
+        ).exists())
+
+
 class CustomerRegistrationTests(APITestCase):
 
     def setUp(self):
@@ -87,8 +163,8 @@ class CustomerRegistrationTests(APITestCase):
             'phone_number': f'+25470000{suffix}',
             'first_name': 'Test',
             'last_name': f'User{suffix}',
-            'password': 'StrongPass123!',
-            'confirm_password': 'StrongPass123!',
+            'password': 'Strong customer passphrase 2026',
+            'confirm_password': 'Strong customer passphrase 2026',
         }
 
     @patch('users.otp_services.secrets.randbelow', return_value=123456)
@@ -370,6 +446,18 @@ class OTPAttemptLimitTests(APITestCase):
         )
 
     @patch('users.otp_services.secrets.randbelow', return_value=123456)
+    @patch('notifications.tasks.queue_email_event')
+    @patch('notifications.tasks.queue_sms_event')
+    def test_otp_is_queued_to_phone_and_optional_email(
+        self, mocked_sms, mocked_email, _randbelow,
+    ):
+        otp = OTPService.generate_and_send(self.user)
+        mocked_sms.assert_called_once()
+        mocked_email.assert_called_once()
+        self.assertEqual(mocked_email.call_args.args[0], self.user.email)
+        self.assertNotEqual(otp.code, '123456')
+
+    @patch('users.otp_services.secrets.randbelow', return_value=123456)
     def test_otp_is_hashed_and_locks_after_five_wrong_attempts(self, _randbelow):
         otp = OTPService.generate_and_send(self.user)
         self.assertNotEqual(otp.code, '123456')
@@ -546,6 +634,29 @@ class HTMLAuthenticationSecurityTests(APITestCase):
         })
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
+    def test_login_label_includes_supported_username_identifier(self):
+        response = self.client.get(reverse('accounts:login'))
+
+        self.assertContains(response, '<meta name="robots" content="noindex,nofollow">')
+        self.assertContains(response, 'Phone number or email')
+        self.assertContains(response, 'Staff may also use their assigned username.')
+
+    @override_settings(
+        NOTIFICATION_PROVIDER='console',
+        TRANSACTIONAL_EMAIL_ENABLED=False,
+    )
+    def test_staff_otp_page_does_not_claim_suppressed_code_was_sent(self):
+        session = self.client.session
+        session['pending_staff_login_user_id'] = self.staff.pk
+        session['pending_staff_login_user_id_created_at'] = timezone.now().timestamp()
+        session.save()
+
+        response = self.client.get(reverse('accounts:verify-staff-otp'))
+
+        self.assertContains(response, 'Code delivery is not configured')
+        self.assertContains(response, 'aria-disabled="true"')
+        self.assertNotContains(response, 'We sent a security code')
+
     def test_html_logout_flushes_authenticated_session_and_is_audited(self):
         self.client.force_login(self.staff)
         response = self.client.post(reverse('accounts:logout'))
@@ -575,6 +686,20 @@ class HTMLAuthenticationSecurityTests(APITestCase):
         session.save()
         response = self.client.get(reverse('accounts:verify-staff-otp'))
         self.assertRedirects(response, reverse('accounts:login'))
+
+    @patch('users.otp_services.secrets.randbelow', return_value=654321)
+    def test_incorrect_staff_otp_renders_without_python_list_syntax(self, _randbelow):
+        self.client.post(reverse('accounts:login'), {
+            'identifier': self.staff.username,
+            'password': 'StaffPass123!',
+        })
+
+        response = self.client.post(
+            reverse('accounts:verify-staff-otp'), {'code': '000000'},
+        )
+
+        self.assertContains(response, 'Incorrect code. 4 attempt(s) remaining.')
+        self.assertNotContains(response, "['Incorrect code.")
 
 
 class StaffProvisioningTests(APITestCase):

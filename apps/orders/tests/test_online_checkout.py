@@ -323,6 +323,13 @@ class SuccessfulOrderCreationTests(OnlineCheckoutTestDataMixin, TestCase):
         import re
         self.assertRegex(order.pickup_code, r'^[A-Z0-9]{6}$')
 
+    @patch('orders.online_services.secrets.choice', side_effect=list('A1B2C3'))
+    def test_pickup_code_uses_secure_random_selection(self, mocked_choice):
+        code = OnlineOrderService._generate_pickup_code()
+
+        self.assertEqual(code, 'A1B2C3')
+        self.assertEqual(mocked_choice.call_count, 6)
+
     def test_mixed_cart_computes_correct_subtotal(self):
         """
         WHAT: Cart with BOTH a simple product and a variant
@@ -487,11 +494,11 @@ class PostCommitBehaviourTests(OnlineCheckoutTestDataMixin, TestCase):
         cart_after = UnifiedSessionCartService(request)
         self.assertTrue(cart_after.is_empty())
 
-    @patch('orders.online_services.OnlineOrderService._trigger_order_placed_sms')
-    def test_sms_trigger_called_after_successful_commit(self, mock_trigger):
+    @patch('orders.online_services.OnlineOrderService._trigger_order_placed_notifications')
+    def test_notification_trigger_called_after_successful_commit(self, mock_trigger):
         """
         WHAT: Successful order creation
-        EXPECT: _trigger_order_placed_sms is called exactly once with the
+        EXPECT: the notification dispatcher is called exactly once with the
                 new order's id, only after the transaction commits
         """
         request = self._get_request_with_session()
@@ -514,7 +521,7 @@ class PostCommitBehaviourTests(OnlineCheckoutTestDataMixin, TestCase):
               a failure mode already proven to occur in this exact
               environment earlier this session)
         EXPECT: The order still exists and is fully committed -- the
-                broadened except Exception in _trigger_order_placed_sms
+                broadened exception handling in the notification dispatcher
                 swallows the failure rather than letting it propagate
         """
         request = self._get_request_with_session()

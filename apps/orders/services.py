@@ -305,10 +305,53 @@ class POSSalesService:
                     'POS Refusal: Record how the Paybill payment was verified.'
                 )
 
+        from catalog.pricing import QuantityPricingService
+        product_quantities = {}
+        for item in items_payload:
+            variant = item.get('variant')
+            product = item.get('product')
+            if bool(variant) == bool(product):
+                raise ValidationError(
+                    'POS Refusal: Each cart item must identify one product or one variant.'
+                )
+            catalog_product = variant.product if variant else product
+            product_quantities[catalog_product.pk] = (
+                product_quantities.get(catalog_product.pk, 0) + int(item['quantity'])
+            )
+
+        priced_items = []
+        for item in items_payload:
+            variant = item.get('variant')
+            product = item.get('product')
+            catalog_product = variant.product if variant else product
+            combined_quantity = product_quantities[catalog_product.pk]
+            if combined_quantity < catalog_product.minimum_order_quantity:
+                shortfall = catalog_product.minimum_order_quantity - combined_quantity
+                raise ValidationError(
+                    f'POS Refusal: Add {shortfall} more {catalog_product.name}; '
+                    f'the minimum is {catalog_product.minimum_order_quantity}. '
+                    'Sizes and colours count together.'
+                )
+            regular_price = variant.effective_price if variant else product.price
+            quote = QuantityPricingService.quote(
+                product=catalog_product,
+                regular_unit_price=regular_price,
+                current_unit_price=regular_price,
+                product_quantity=combined_quantity,
+            )
+            priced_items.append((item, quote))
+
+        has_quantity_price = any(quote.wholesale_applied for _, quote in priced_items)
+        if has_quantity_price and (discount_amount > 0 or coupon_code):
+            raise ValidationError(
+                'POS Refusal: Quantity pricing cannot be combined with a coupon or manager discount.'
+            )
+
         # --- Create order (PENDING until fully processed) ---
         order = Order.objects.create(
             branch=branch,
             order_type=Order.OrderType.WALK_IN,
+            sales_channel=Order.SalesChannel.POS,
             customer_phone=normalized_customer_phone,
             customer_name=customer_name.strip(),
             # Financial values are finalized only after every line has been
@@ -325,7 +368,7 @@ class POSSalesService:
         running_subtotal = Decimal('0.00')
 
         
-        for item in items_payload:
+        for item, price_quote in priced_items:
             variant = item.get('variant')
             product = item.get('product')
             qty = item['quantity']
@@ -341,10 +384,7 @@ class POSSalesService:
                 )
 
             # Lock price at this exact moment — immune to future price changes
-            if variant:
-                locked_price = variant.effective_price
-            else:
-                locked_price = product.price
+            locked_price = price_quote.unit_price
 
             order_item = OrderItem(
                 order=order,
@@ -352,6 +392,10 @@ class POSSalesService:
                 product=product,
                 quantity=qty,
                 unit_price=locked_price,
+                regular_unit_price=price_quote.regular_unit_price,
+                pricing_source=price_quote.source,
+                quantity_tier_minimum=price_quote.tier_minimum,
+                quantity_discount_percentage=price_quote.discount_percentage,
             )
             order_item.full_clean()
             order_item.save()

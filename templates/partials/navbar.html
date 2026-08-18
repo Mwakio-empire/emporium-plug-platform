@@ -1,5 +1,5 @@
 <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur">
-  <div class="bg-slate-950 px-4 py-1.5 text-center text-[11px] font-semibold text-white sm:text-xs">Pickup at S18, Gaberone Plaza <span class="mx-2 text-brand-400">•</span> Town parcels arranged on WhatsApp</div>
+  <div class="bg-slate-950 px-4 py-1.5 text-center text-[11px] font-semibold text-white sm:text-xs">Pickup at S18, Gaberone Plaza <span class="mx-2 text-brand-400">•</span> Verified town-parcel quotes before payment</div>
   <nav aria-label="Main navigation" class="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
     <div class="flex h-16 items-center gap-3 lg:gap-6">
       <a href="/" class="shrink-0 text-lg font-black tracking-tight text-slate-950 sm:text-xl" aria-label="Emporium Plug home">Emporium<span class="font-medium text-brand-600">Plug</span></a>
@@ -10,7 +10,9 @@
       </form>
       <div class="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
         <a href="/#products" class="hidden rounded-lg px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">Shop</a>
+        {% if not user.is_authenticated or user.role == 'CUSTOMER' %}<a href="{% url 'core:wishlist' %}" class="grid h-10 w-10 place-items-center rounded-full border border-slate-200 text-slate-700 hover:border-rose-200 hover:text-rose-600" aria-label="Open wishlist"><svg aria-hidden="true" class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8.25c0-2.49-2.1-4.5-4.69-4.5-1.93 0-3.59 1.12-4.31 2.73-.72-1.61-2.38-2.73-4.31-2.73C5.1 3.75 3 5.76 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"/></svg></a>{% endif %}
         {% if user.is_authenticated %}
+          {% if user.role == 'SUPER_ADMIN' %}<a href="{% url 'core:analytics_dashboard' %}" class="rounded-full bg-brand-600 px-3 py-2 text-xs font-bold text-white hover:bg-brand-700 sm:text-sm" aria-label="Open administration">Admin</a>{% elif user.role == 'BRANCH_MANAGER' %}<a href="{% url 'core:analytics_dashboard' %}" class="hidden px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">Operations</a>{% endif %}
           {% if user.role == 'CUSTOMER' %}<a href="{% url 'accounts:profile' %}" class="px-2 py-2 text-xs font-semibold text-slate-700 hover:text-brand-700 sm:text-sm">My account</a>{% endif %}
           {% if user.role == 'STAFF' or user.role == 'BRANCH_MANAGER' %}<a href="{% url 'core:pos_workspace' %}" class="hidden px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">POS</a>{% endif %}
           {% if user.role == 'INVENTORY_MANAGER' or user.role == 'BRANCH_MANAGER' or user.role == 'SUPER_ADMIN' %}<a href="{% url 'inventory:inventory-workspace' %}" class="hidden px-2 py-2 text-sm font-semibold text-slate-700 hover:text-brand-700 lg:block">Inventory</a>{% endif %}

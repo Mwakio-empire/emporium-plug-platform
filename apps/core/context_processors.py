@@ -3,7 +3,6 @@ from urllib.parse import quote
 from django.conf import settings
 from django.templatetags.static import static
 
-
 def build_whatsapp_url(message):
     phone = str(getattr(settings, 'WHATSAPP_ORDER_PHONE', '') or '').strip()
     digits = ''.join(character for character in phone if character.isdigit())
@@ -30,7 +29,7 @@ def business_contact(request):
         'areaServed': {'@type': 'Country', 'name': 'Kenya'},
         'contactPoint': {
             '@type': 'ContactPoint',
-            'telephone': '+254116153335',
+            'telephone': '+254797727486',
             'contactType': 'customer service',
             'areaServed': 'KE',
             'availableLanguage': ['English', 'Swahili'],
@@ -54,9 +53,12 @@ def business_contact(request):
             },
         ],
     }
-    return {
-        'business_contact_numbers': ('0739 150 246', '0116 153 335', '0783 025 355'),
+    context = {
+        'business_contact_numbers': (
+            '0797 727 486', '0739 150 246', '0116 153 335', '0783 025 355',
+        ),
         'whatsapp_order_url': build_whatsapp_url(message),
         'organization_schema': organization_schema,
         'store_logo_url': store_logo_url,
     }
+    return context

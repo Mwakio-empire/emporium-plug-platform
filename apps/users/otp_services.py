@@ -63,6 +63,21 @@ class OTPService:
             )
         except Exception:
             logger.error("Failed to queue OTP SMS for user id=%s.", user.id)
+        if user.email:
+            try:
+                from notifications.catalog import EventType
+                from notifications.tasks import queue_email_event
+                queue_email_event(
+                    user.email,
+                    'Your Emporium Plug verification code',
+                    message,
+                    EventType.OTP,
+                    'otp_verification', otp.pk,
+                    occurrence=purpose,
+                    branch=user.branch,
+                )
+            except Exception:
+                logger.error("Failed to queue OTP email for user id=%s.", user.id)
         return otp
 
     @classmethod

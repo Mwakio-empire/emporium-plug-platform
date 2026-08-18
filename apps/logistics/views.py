@@ -2,6 +2,8 @@
 
 import logging
 import secrets
+import re
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.utils import timezone
@@ -9,13 +11,14 @@ from rest_framework import generics, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from rest_framework.throttling import ScopedRateThrottle
 from django.core.cache import cache
 from orders.models import Order, OrderStatusHistory
 from orders.inventory import OrderInventoryService
 from orders.transitions import OrderTransitionService
 from .models import (
     DeliveryAssignment, DeliveryLocationLog,
-    DeliveryZone, RiderProfile, PickupSlot,
+    DeliveryZone, KenyaCounty, KenyaTown, RiderProfile, PickupSlot,
 )
 from .serializers import (
     DeliveryZoneSerializer,
@@ -24,10 +27,12 @@ from .serializers import (
     AssignRiderRequestSerializer,
     UpdateDeliveryStatusSerializer,
     PickupCodeSerializer,
+    KenyaTownLookupSerializer,
 )
 from notifications.tasks import send_delivery_status_sms, send_collection_confirmed_sms
 from users.permissions import IsRider, IsBranchManagerOrAbove, IsStaffOrAbove
 from users.rate_limit import check_rate_limit
+from .location_services import town_list_cache_key
 
 logger = logging.getLogger(__name__)
 
@@ -75,6 +80,45 @@ def _invalidate_report_caches(order):
 # ----------------------------------------------------------------------
 # DELIVERY ZONES & PICKUP SLOTS (public)
 # ----------------------------------------------------------------------
+
+class TownListView(APIView):
+    """Return active towns for one active Kenyan county."""
+
+    permission_classes = [AllowAny]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'location_lookup'
+
+    def get(self, request):
+        county_code = str(request.query_params.get('county', '')).strip()
+        if not re.fullmatch(r'\d{2}', county_code):
+            return Response(
+                {'county': ['Choose an active Kenyan county.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not KenyaCounty.objects.filter(code=county_code, is_active=True).exists():
+            return Response(
+                {'county': ['Choose an active Kenyan county.']},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        cache_key = town_list_cache_key(county_code)
+        cached_towns = cache.get(cache_key)
+        if cached_towns is None:
+            towns = KenyaTown.objects.filter(
+                county_id=county_code,
+                county__is_active=True,
+                is_active=True,
+            ).order_by('name', 'pk')
+            cached_towns = KenyaTownLookupSerializer(towns, many=True).data
+            try:
+                configured_timeout = int(
+                    getattr(settings, 'LOCATION_LOOKUP_CACHE_SECONDS', 300)
+                )
+            except (TypeError, ValueError):
+                configured_timeout = 300
+            cache.set(cache_key, cached_towns, timeout=max(30, min(configured_timeout, 900)))
+
+        return Response(cached_towns)
 
 class DeliveryZoneListView(generics.ListAPIView):
     """GET /api/logistics/zones/?branch=<uuid>"""

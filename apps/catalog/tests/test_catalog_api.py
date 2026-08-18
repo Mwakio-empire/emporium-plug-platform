@@ -169,7 +169,7 @@ class CategoryTreeViewTests(CatalogTestDataMixin, APITestCase):
 
 class ProductListViewTests(CatalogTestDataMixin, APITestCase):
 
-    def test_branch_filter_scopes_available_stock(self):
+    def test_branch_filter_scopes_stock_without_exposing_exact_quantity(self):
         other_branch = Branch.objects.create(
             name='Other Catalog Branch', location='Other', is_active=True,
         )
@@ -183,7 +183,8 @@ class ProductListViewTests(CatalogTestDataMixin, APITestCase):
         })
         products = {product['slug']: product for product in response.data['results']}
         self.assertIn(self.product_kettle.slug, products)
-        self.assertEqual(products[self.product_kettle.slug]['available_stock'], 10)
+        self.assertEqual(products[self.product_kettle.slug]['stock_status'], 'IN_STOCK')
+        self.assertNotIn('available_stock', products[self.product_kettle.slug])
         self.assertNotIn(self.product_out_of_stock.slug, products)
 
         other_response = self.client.get(url, {
@@ -310,6 +311,8 @@ class ProductDetailViewTests(CatalogTestDataMixin, APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['name'], "Simple Kettle")
         self.assertEqual(response.data['category']['name'], "Electronics Catalog Test")
+        self.assertEqual(response.data['stock_status'], 'IN_STOCK')
+        self.assertNotIn('total_stock', response.data)
 
     def test_variant_product_includes_variants_list(self):
         """
@@ -326,6 +329,8 @@ class ProductDetailViewTests(CatalogTestDataMixin, APITestCase):
         variant_data = response.data['variants'][0]
         self.assertEqual(variant_data['attribute_name'], "Size")
         self.assertEqual(variant_data['attribute_value'], "Small")
+        self.assertEqual(variant_data['stock_status'], 'IN_STOCK')
+        self.assertNotIn('total_stock', variant_data)
 
     def test_hidden_product_returns_404_on_detail(self):
         """

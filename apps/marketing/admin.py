@@ -8,8 +8,11 @@ from .models import Coupon, CouponRedemption, FlashSale, ProductReview, ReturnRe
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):
-    list_display = ('code', 'discount_type', 'value', 'times_used', 'usage_limit', 'is_active')
-    list_filter = ('discount_type', 'is_active', 'branches')
+    list_display = (
+        'code', 'discount_type', 'value', 'allow_discounted_items',
+        'times_used', 'usage_limit', 'is_active',
+    )
+    list_filter = ('discount_type', 'allow_discounted_items', 'is_active', 'branches')
     search_fields = ('code',)
     filter_horizontal = ('branches',)
 

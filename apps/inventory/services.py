@@ -31,6 +31,19 @@ class InventoryService:
         )
         return stock
 
+    @classmethod
+    def _lock_transfer_stocks(cls, *, from_branch, to_branch, variant=None, product=None):
+        """Lock both transfer balances in one deterministic branch order."""
+        if from_branch.pk == to_branch.pk:
+            raise ValidationError("Source and destination branches must be different.")
+
+        locked_by_branch_id = {}
+        for branch in sorted((from_branch, to_branch), key=lambda item: item.pk):
+            locked_by_branch_id[branch.pk] = cls._locked_stock(
+                branch=branch, variant=variant, product=product,
+            )
+        return locked_by_branch_id[from_branch.pk], locked_by_branch_id[to_branch.pk]
+
     @staticmethod
     def _audit(*, stock, reason, triggered_by, change_amount=0,
                reference_number=None, note=''):
@@ -215,11 +228,9 @@ class InventoryService:
     def receive_transfer(cls, *, from_branch, to_branch, quantity, triggered_by,
                          reference_number, variant=None, product=None, note=''):
         quantity = int(quantity)
-        source = cls._locked_stock(
-            branch=from_branch, variant=variant, product=product,
-        )
-        destination = cls._locked_stock(
-            branch=to_branch, variant=variant, product=product,
+        source, destination = cls._lock_transfer_stocks(
+            from_branch=from_branch, to_branch=to_branch,
+            variant=variant, product=product,
         )
         existing = cls._existing_movement(
             stock=destination, reason=StockAuditLog.Reason.TRANSFER_IN,

@@ -30,12 +30,12 @@ class DeployedMediaSettingsTests(SimpleTestCase):
         'CLOUDINARY_API_SECRET': '',
     }
 
-    def import_settings(self, **overrides):
+    def import_settings(self, *, script='import config.settings', **overrides):
         environment = os.environ.copy()
         environment.update(self.base_environment)
         environment.update(overrides)
         return subprocess.run(
-            [sys.executable, '-c', 'import config.settings'],
+            [sys.executable, '-c', script],
             cwd=os.getcwd(),
             env=environment,
             capture_output=True,
@@ -56,6 +56,26 @@ class DeployedMediaSettingsTests(SimpleTestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_staging_uses_cloudinary_as_default_media_storage(self):
+        result = self.import_settings(
+            script=(
+                'import config.settings as s; '
+                'print(s.STORAGES["default"]["BACKEND"])'
+            ),
+            ENVIRONMENT='staging',
+            CLOUDINARY_URL='cloudinary://key:secret@staging-cloud',
+            PRIVACY_CONTROLLER_NAME='Staging synthetic data only',
+            PRIVACY_CONTACT_EMAIL='staging-invalid@example.invalid',
+            PRIVACY_NOTICE_APPROVED='False',
+            NOTIFICATION_PROVIDER='console',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.strip(),
+            'cloudinary_storage.storage.MediaCloudinaryStorage',
+        )
+
     def test_staging_without_cloudinary_is_rejected(self):
         result = self.import_settings(
             ENVIRONMENT='staging',
@@ -65,15 +85,12 @@ class DeployedMediaSettingsTests(SimpleTestCase):
         self.assertIn('requires Cloudinary credentials', result.stderr)
 
     def test_production_without_cloudinary_is_rejected(self):
-        result = self.import_settings(
-            ENVIRONMENT='production',
-            PRIVACY_CONTROLLER_NAME='Production Controller Test',
-            PRIVACY_CONTACT_EMAIL='privacy@example.test',
-            PRIVACY_NOTICE_APPROVED='True',
-            NOTIFICATION_PROVIDER='africastalking',
-            AFRICASTALKING_USERNAME='emporium-test',
-            AFRICASTALKING_API_KEY='not-a-real-provider-key',
-        )
+        result = self.import_settings(**self.production_environment(
+            CLOUDINARY_URL='',
+            CLOUDINARY_CLOUD_NAME='',
+            CLOUDINARY_API_KEY='',
+            CLOUDINARY_API_SECRET='',
+        ))
 
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('requires Cloudinary credentials', result.stderr)
@@ -88,6 +105,19 @@ class DeployedMediaSettingsTests(SimpleTestCase):
             'NOTIFICATION_PROVIDER': 'africastalking',
             'AFRICASTALKING_USERNAME': 'emporium-test',
             'AFRICASTALKING_API_KEY': 'not-a-real-provider-key',
+            'TRANSACTIONAL_EMAIL_ENABLED': 'True',
+            'EMAIL_BACKEND': 'django.core.mail.backends.smtp.EmailBackend',
+            'EMAIL_HOST_USER': 'synthetic-smtp-user',
+            'EMAIL_HOST_PASSWORD': 'synthetic-smtp-password',
+            'DEFAULT_FROM_EMAIL': 'orders@example.test',
+            'BACKUP_ENABLED': 'True',
+            'BACKUP_S3_BUCKET': 'synthetic-backup-bucket',
+            'MPESA_ENVIRONMENT': 'production',
+            'MPESA_CONSUMER_KEY': 'synthetic-consumer-key',
+            'MPESA_CONSUMER_SECRET': 'synthetic-consumer-secret',
+            'MPESA_SHORTCODE': '123456',
+            'MPESA_PASSKEY': 'synthetic-passkey',
+            'MPESA_CALLBACK_URL': 'https://example.test/payments/mpesa/callback/',
         }
         values.update(overrides)
         return values
@@ -147,3 +177,42 @@ class DeployedMediaSettingsTests(SimpleTestCase):
         result = self.import_settings(**self.production_environment())
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_production_uses_cloudinary_as_default_media_storage(self):
+        result = self.import_settings(
+            script=(
+                'import config.settings as s; '
+                'print(s.STORAGES["default"]["BACKEND"])'
+            ),
+            **self.production_environment(),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.strip(),
+            'cloudinary_storage.storage.MediaCloudinaryStorage',
+        )
+
+    def test_production_rejects_sandbox_mpesa(self):
+        result = self.import_settings(**self.production_environment(
+            MPESA_ENVIRONMENT='sandbox',
+        ))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('cannot start while M-Pesa is configured for sandbox', result.stderr)
+
+    def test_production_requires_transactional_email(self):
+        result = self.import_settings(**self.production_environment(
+            TRANSACTIONAL_EMAIL_ENABLED='False',
+        ))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('requires verified transactional email delivery', result.stderr)
+
+    def test_production_requires_off_site_backup_job(self):
+        result = self.import_settings(**self.production_environment(
+            BACKUP_ENABLED='False',
+        ))
+
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('requires the approved encrypted off-site backup job', result.stderr)

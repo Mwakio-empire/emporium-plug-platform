@@ -9,12 +9,13 @@
       <div class="flex-1 min-w-0">
         {% if item.variant %}
         <h5 class="font-bold text-xs text-gray-900 truncate">{{ item.variant.product.name }}</h5>
-        <p class="text-[10px] text-gray-400 mt-0.5">{{ item.variant.attribute_name }}: {{ item.variant.attribute_value }}</p>
+        <p class="text-[10px] text-gray-400 mt-0.5">{{ item.variant.option_summary }}</p>
         {% else %}
         <h5 class="font-bold text-xs text-gray-900 truncate">{{ item.product.name }}</h5>
         <p class="text-[10px] text-gray-400 mt-0.5">SKU: {{ item.product.sku }}</p>
         {% endif %}
         <p class="text-xs font-mono font-bold text-brand-600 mt-0.5">KES {{ item.price }} each &middot; KES {{ item.total_price }} total</p>
+        {% if item.wholesale_applied %}<p class="mt-1 text-[11px] font-semibold text-emerald-700">{{ item.quantity_discount_percentage|floatformat:0 }}% quantity price applied at {{ item.quantity_tier_minimum }}+ units.</p>{% endif %}
         <p class="text-[10px] text-gray-500">{{ item.available_quantity }} available at this branch</p>
       </div>
 

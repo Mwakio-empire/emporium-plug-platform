@@ -101,9 +101,9 @@ class OperationsReportService:
         payment_breakdown = list(orders.values('payment_method').annotate(
             order_count=Count('id'), amount=Sum('total_payable'),
         ).order_by('payment_method'))
-        channel_breakdown = list(orders.values('order_type').annotate(
+        channel_breakdown = list(orders.values('sales_channel').annotate(
             order_count=Count('id'), amount=Sum('total_payable'),
-        ).order_by('order_type'))
+        ).order_by('sales_channel'))
         branch_breakdown = list(orders.values('branch_id', 'branch__name').annotate(
             order_count=Count('id'), amount=Sum('total_payable'),
         ).order_by('-amount', 'branch__name'))

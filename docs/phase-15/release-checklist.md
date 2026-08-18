@@ -15,7 +15,9 @@ No one may approve release while an unchecked launch blocker remains. Attach evi
 ## Critical journeys
 
 - [ ] Guest/customer S18 pickup passes with the selected pickup method, active arrangement, exact total, confirmation, code and expiry.
-- [ ] “Send to my town” opens the approved cart-aware WhatsApp conversation without creating an order, reserving stock or presenting an invented transport fee.
+- [ ] “Send to my town” creates only a protected quote request; no order, stock reservation or payment exists before acceptance.
+- [ ] Quote timing skips Sunday/configured closures; branch staff publishes operator, collection point, fee and ETA; the 24-hour expiry and delayed-response WhatsApp escalation render correctly.
+- [ ] Quote acceptance rechecks live product/stock/prices, shows product savings/coupon savings/fee/total separately, enforces controlled stacking and creates/reserves one prepaid M-Pesa parcel order exactly once.
 - [ ] M-Pesa success, duplicate, missing callback/poll, cancellation, timeout, partial, excess and unknown cases pass in sandbox.
 - [ ] Failed/expired payments and pickups restore stock once.
 - [ ] Walk-in cash sale, receipt, shift close, discount and void pass.

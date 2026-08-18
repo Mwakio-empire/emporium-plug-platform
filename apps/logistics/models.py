@@ -1,6 +1,7 @@
 # apps/logistics/models.py
 
 import uuid
+import unicodedata
 from decimal import Decimal, ROUND_CEILING
 from django.db import models
 from django.conf import settings
@@ -21,6 +22,62 @@ class KenyaCounty(models.Model):
 
     def __str__(self):
         return self.name
+
+
+class KenyaTown(models.Model):
+    """Maintained urban-centre reference used for destination selection."""
+
+    county = models.ForeignKey(
+        KenyaCounty,
+        on_delete=models.PROTECT,
+        related_name='towns',
+    )
+    name = models.CharField(max_length=100)
+    normalized_name = models.CharField(max_length=100, editable=False)
+    is_active = models.BooleanField(default=True, db_index=True)
+    source = models.CharField(max_length=80, default='KNBS')
+    source_revision = models.CharField(max_length=40, default='2019-KPHC')
+
+    class Meta:
+        ordering = ['county__name', 'name']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['county', 'normalized_name'],
+                name='unique_normalized_town_per_county',
+            ),
+        ]
+        indexes = [
+            models.Index(
+                fields=['county', 'is_active', 'name'],
+                name='town_county_active_name_idx',
+            ),
+        ]
+
+    @staticmethod
+    def normalize_name(value):
+        value = unicodedata.normalize('NFKC', str(value or ''))
+        if any(unicodedata.category(character) == 'Cc' for character in value):
+            raise ValidationError({'name': 'Town name cannot contain control characters.'})
+        return ' '.join(value.split())
+
+    def clean(self):
+        super().clean()
+        self.name = self.normalize_name(self.name)
+        if not self.name:
+            raise ValidationError({'name': 'Town name is required.'})
+        self.normalized_name = self.name.casefold()
+        normalized_max_length = self._meta.get_field('normalized_name').max_length
+        if len(self.normalized_name) > normalized_max_length:
+            raise ValidationError({
+                'name': 'Town name is too long after normalization.',
+            })
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.name}, {self.county.name}'
 
 
 class ParcelDestination(models.Model):
@@ -447,7 +504,7 @@ class ParcelDispatch(models.Model):
     def clean(self):
         super().clean()
         if self.order_id:
-            if self.order.order_type != 'ONLINE_DELIVERY' or not self.order.parcel_destination_id:
+            if not self.order.is_town_parcel:
                 raise ValidationError('Parcel dispatch requires a parcel-to-town order.')
 
     def save(self, *args, **kwargs):
