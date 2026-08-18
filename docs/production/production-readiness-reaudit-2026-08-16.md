@@ -38,7 +38,7 @@ There is no honest basis for calling this project 95–100% production-ready yet
 
 | Area | Local implementation | Production proof | Main gap |
 |---|---:|---:|---|
-| Baseline, migrations and CI | 99% | 75% | PostgreSQL-backed CI is configured; latest release is not yet pushed through green CI. |
+| Baseline, migrations and CI | 100% | 100% | PostgreSQL-backed CI run `32123877217` passed on exact release-code SHA `d8cc68ea4e864a99399b0923483ea663661b9a3e`. |
 | Domain, inventory and branch isolation | 94% | 60% | PostgreSQL passes locally; hosted load/concurrency proof remains. |
 | Authentication and account flows | 91% | 55% | Real email/SMS delivery and staff UAT are outstanding. |
 | Storefront, catalogue and cart | 93% | 55% | Demo catalogue must be replaced and browser/UAT evidence repeated. |
@@ -58,10 +58,10 @@ certification. The score must rise through evidence, not by changing labels.
 
 | Capability | State | Evidence | Remaining gate |
 |---|---|---|---|
-| Healthy baseline | Complete and verified locally | Checks, drift, compilation and 718-test pass | Commit, push and green CI on the release revision |
+| Healthy baseline | Complete and verified | Checks, drift, compilation, 718-test PostgreSQL pass and green exact-SHA CI | Phase 0 closed; preserve evidence during staging work |
 | Three-branch topology | Complete and verified locally | Idempotent branch command and dry run | Apply and inspect in staging/production |
 | Catalog images | Corrected locally | Catalog fields use Cloudinary; deployed default media now selects Cloudinary | Focused/full regression, hosted upload and redeploy persistence test |
-| PostgreSQL | Complete and verified locally | `start_local_postgres.ps1 -VerifyRelease`; 718 tests, zero skips; 31 focused critical-flow tests | Repeat on committed SHA and production-sized staging |
+| PostgreSQL | Complete and verified for Phase 0 | `start_local_postgres.ps1 -VerifyRelease`; 718 tests, zero skips; 31 focused critical-flow tests; PostgreSQL-backed CI green | Repeat against production-sized staging |
 | Redis/Celery | Implemented and locally configured | Redis cache/broker and Beat schedules | Hosted web/worker/Beat heartbeat and failure drill |
 | Brevo email | Implemented but externally unverified | SMTP backend and durable email attempts | Domain/sender verification and staged delivery evidence |
 | Africa's Talking SMS | Implemented but externally unverified | Durable attempts/retries; sandbox configuration | Sandbox delivery, sender approval and production account |

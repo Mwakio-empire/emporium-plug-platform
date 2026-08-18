@@ -80,7 +80,7 @@ date, termination/handover procedure and monthly-cost approver.
 
 - [x] Read the full business context and the current audit.
 - [x] Inspect `git status`; preserve unrelated user work.
-- [ ] Select one release branch and record the exact commit SHA.
+- [x] Select one release branch and record the exact commit SHA.
 - [x] Confirm `.env` values only by presence/type/boolean status; never print secrets.
 - [x] Change the repeatable local integration profile from SQLite to PostgreSQL.
 - [x] Start PostgreSQL and Redis; record their versions and health.
@@ -95,7 +95,7 @@ date, termination/handover procedure and monthly-cost approver.
 - [x] Confirm no placeholder route, debug endpoint, fake provider or demo seed is
   reachable as a production feature.
 - [x] Update test totals and the consolidated defect/limitations documents.
-- [ ] Commit and push; require green GitHub Actions on the exact release SHA.
+- [x] Commit and push; require green GitHub Actions on the exact release SHA.
 
 Exit gate: all commands pass, no migration drift, no critical/high unexplained
 defect, and PostgreSQL—not SQLite—backs the recorded release evidence.

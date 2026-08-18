@@ -4,7 +4,7 @@
 
 | Capability | Implementation/evidence | State | Remaining gate |
 |---|---|---|---|
-| Healthy baseline | Phase 0 checks, migrations, CI and full suite | Complete and verified | Repeat on release revision. |
+| Healthy baseline | Phase 0 checks, migrations, CI and full suite | Complete and verified | Exact release-code SHA `d8cc68ea4e864a99399b0923483ea663661b9a3e`; GitHub run `32123877217` passed. |
 | Users, roles and branch isolation | User constraints, 15-character customer passphrases, phone/email login, staff 2FA, authenticated password change, role permissions and Phase 2 authentication/authorization suites | Complete and verified locally | Witnessed Brevo/Africa's Talking delivery test, client staff roster and staging security/UAT. |
 | Domain and inventory integrity | Phase 1/1.5 constraints, locked services, audit records; repeatable 718-test PostgreSQL pass with zero skips and 31 focused critical-flow tests | Complete and verified locally | Production-sized staging load/concurrency proof; DB-level audit immutability remains limitation. |
 | Catalog/storefront/cart | Responsive storefront, structured Size/Colour/Capacity option combinations, per-SKU stock/price/image support, public in/low/out stock states without exact unit disclosure, configurable product MOQ and percentage quantity tiers across mixed variants, search/filter/detail/cart/SEO/accessibility tests, wishlist, and rate-limited one-shot SMS restock requests for exact products/variants | Complete and verified locally | Client must configure/approve real low-stock thresholds, quantity thresholds and discounts; replace DEMO-SKU fixtures with client-approved catalogue, prices, images and opening stock; certify customer SMS delivery and complete client accessibility/UAT. |
@@ -19,7 +19,7 @@
 | Notifications | Durable deduplicated attempts, retries, follow-up queue, templates and safe console provider | Complete and verified locally | Approved provider credentials and sandbox certification. |
 | Security/privacy | Review, threat model, PII controls, privacy operations and breach runbook | Implemented and locally reviewed | External assessment and qualified Kenyan privacy/legal approval. |
 | Production engineering | Render blueprints, environment guards, health, logging, Sentry, deployment/rollback and native backup procedure | Implemented but externally unverified | Provision, alerts, restore, load, latency and failover evidence. |
-| Testing | 718-test SQLite suite passes with one expected row-lock skip; repeatable complete PostgreSQL suite passes 718 with zero skips; 31 focused PostgreSQL critical-flow tests pass; CI now provisions PostgreSQL 17 and Redis 7; manual UAT pack retained | Automated suites complete locally for this working tree | Obtain green CI on the exact release SHA, then complete authenticated browser/accessibility UAT, provider/recovery/load/security and client acceptance. |
+| Testing | 718-test SQLite suite passes with one expected row-lock skip; repeatable complete PostgreSQL suite passes 718 with zero skips; 31 focused PostgreSQL critical-flow tests pass; CI provisions PostgreSQL 17 and Redis 7; GitHub run `32123877217` passed; manual UAT pack retained | Phase 0 automated evidence complete | Complete authenticated browser/accessibility UAT, provider/recovery/load/security and client acceptance in their gated phases. |
 | Documentation | Phase 15 indexed engineering/operations/client guides | Complete and locally verified | Client review, named owners and acceptance signatures. |
 
 ## Client decisions still required

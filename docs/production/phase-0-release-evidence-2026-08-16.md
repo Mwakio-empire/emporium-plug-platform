@@ -4,10 +4,13 @@
 
 Release branch: `codex/delivery-quotes-controlled-stacking`
 
-Release SHA: **pending intentional commit and push**
+Verified code SHA: `d8cc68ea4e864a99399b0923483ea663661b9a3e`
 
-Exit gate: **NOT PASSED** until GitHub Actions is green on the exact release
-commit and that SHA is recorded. All local gates currently pass.
+Verified GitHub Actions run: `32123877217`
+
+Exit gate: **PASS**. The release code SHA passed every local gate and the full
+PostgreSQL-backed GitHub workflow. The documentation-only closure commit must
+also remain green before the annotated Phase 0 release tag is created.
 
 ## Evidence summary
 
@@ -28,14 +31,14 @@ commit and that SHA is recorded. All local gates currently pass.
 | Redis | Pass | Authenticated Compose Redis 7 service healthy; used by the release profile. |
 | Production media default | Pass locally | Deployed settings select Cloudinary default media storage; hosted persistence is a later staging gate. |
 | Demo-data safety | Pass locally | Both demo catalogue and review seed commands are blocked in production. |
-| GitHub Actions | Pending | Workflow now provisions PostgreSQL 17 and Redis 7; pushed exact-SHA run not yet available. |
+| GitHub Actions | Pass | Run `32123877217` passed on exact SHA `d8cc68ea4e864a99399b0923483ea663661b9a3e`; PostgreSQL 17 and Redis 7 were healthy and every workflow step passed. |
 
 Initial pushed run `32122998782` on SHA
 `38fafb65a0e6cd85e12c160ea34cd6757dbd2b7b` failed correctly at the dependency
 audit after four 2026 vulnerabilities were reported for `sqlparse==0.5.5`.
-The release was not promoted and the dependency is being upgraded to the fixed
-`0.6.0` release. A new exact-SHA run is required; the failed run is retained as
-evidence that the security gate is working.
+The release was not promoted and the dependency was upgraded to the fixed
+`0.6.0` release. The corrective run recorded above passed; the failed run is
+retained as evidence that the security gate is working.
 
 ## Migration risk review
 
@@ -63,9 +66,9 @@ requires reversing a data conversion.
 - Demo commands are manual development/staging tools and now fail before mutation
   when production mode is active.
 
-## Remaining Phase 0 actions
+## Phase 0 closure
 
-1. Review final diff and secret scan.
-2. Commit intentionally and push the selected release branch.
-3. Require GitHub Actions to pass on that exact commit.
-4. Record the release SHA and CI run evidence, then mark Phase 0 PASS.
+The final diff and secret scan passed, the release branch was intentionally
+committed and pushed, and exact-SHA GitHub Actions passed. After this evidence
+update itself passes CI, create the annotated tag `phase0-rc-2026-08-18` on the
+closure commit. No Phase 1 action began before the Phase 0 exit gate passed.
