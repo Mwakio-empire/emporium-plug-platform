@@ -85,6 +85,7 @@ certification. The score must rise through evidence, not by changing labels.
 | REL-005 | High | Current handover records contain stale test counts and already-resolved branch/location decisions. | Client or operator could follow incorrect release information. | Refresh Phase 13–15 traceability, limitations, verification and release documents from this audit. |
 | REL-006 | High | Corrected locally: GitHub Actions used SQLite even though release evidence requires PostgreSQL. | CI could miss row-lock/concurrency failures on the exact release commit. | CI now provisions PostgreSQL 17 and Redis 7 and uses PostgreSQL for Django checks/tests; obtain a green run on the pushed release SHA. |
 | REL-007 | High | Corrected locally: the demo-review command was production-blocked but the demo-catalogue command was not. | An operator could accidentally create synthetic products/stock in production. | The catalogue seed now fails before mutation when `IS_PRODUCTION=True`; regression coverage passes. |
+| REL-008 | High | The first pushed CI run identified four 2026 vulnerabilities in `sqlparse==0.5.5`. | Retaining the vulnerable parser would fail the security gate and expose avoidable dependency risk. | Upgraded to fixed `sqlparse==0.6.0`; local audit is clean and the full 718-test PostgreSQL regression passes. A green exact-SHA CI rerun remains required. |
 
 ### Production engineering blockers
 

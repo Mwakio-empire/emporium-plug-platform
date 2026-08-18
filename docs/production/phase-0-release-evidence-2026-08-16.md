@@ -30,6 +30,13 @@ commit and that SHA is recorded. All local gates currently pass.
 | Demo-data safety | Pass locally | Both demo catalogue and review seed commands are blocked in production. |
 | GitHub Actions | Pending | Workflow now provisions PostgreSQL 17 and Redis 7; pushed exact-SHA run not yet available. |
 
+Initial pushed run `32122998782` on SHA
+`38fafb65a0e6cd85e12c160ea34cd6757dbd2b7b` failed correctly at the dependency
+audit after four 2026 vulnerabilities were reported for `sqlparse==0.5.5`.
+The release was not promoted and the dependency is being upgraded to the fixed
+`0.6.0` release. A new exact-SHA run is required; the failed run is retained as
+evidence that the security gate is working.
+
 ## Migration risk review
 
 No migration file changed and no migration is pending. Fresh-database migration

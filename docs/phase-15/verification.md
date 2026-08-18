@@ -25,6 +25,10 @@
   required before Phase 0 passes.
 - Demo catalogue and simulated review commands both fail closed in production;
   the catalogue production guard has dedicated regression coverage.
+- Initial GitHub run `32122998782` correctly stopped after finding four 2026
+  vulnerabilities in `sqlparse==0.5.5`. The dependency was upgraded to fixed
+  `0.6.0`; `pip check`, `pip-audit` and the complete 718-test PostgreSQL suite
+  pass locally after the upgrade. A new exact-SHA CI run is required.
 - The re-audit identified unscheduled logical backups, optional production
   Sentry, disabled report email, unprovisioned Render resources and uncompleted
   provider/UAT/security gates. They remain blockers; no readiness label was
