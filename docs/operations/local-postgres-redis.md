@@ -87,6 +87,24 @@ the Django development server with:
 .\scripts\start_local_postgres.ps1
 ```
 
+Run the release verification against PostgreSQL without starting a web server:
+
+```powershell
+.\scripts\start_local_postgres.ps1 -VerifyRelease
+```
+
+This mode reuses the same protected local credentials without printing them,
+applies pending migrations to `emporium_current`, checks migration drift,
+compiles the application and runs the complete disposable Django test database
+suite on PostgreSQL. It exits after verification.
+
+For isolated release evidence, pass a comma-separated list of Django test
+labels without exposing the protected database or Redis credentials:
+
+```powershell
+.\scripts\start_local_postgres.ps1 -VerifyRelease -TestLabels 'inventory.tests.PostgreSQLInventoryConcurrencyTests,payments.tests,payments.tests_poll,orders.tests.test_auto_cancel'
+```
+
 The helper detects and preserves `emporium-sandbox-postgres` when present. It
 starts an authenticated Compose Redis service on port `56379`, reads credentials
 without displaying them, connects Django to `emporium_current` through port

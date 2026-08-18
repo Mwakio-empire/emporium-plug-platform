@@ -30,12 +30,12 @@ class DeployedMediaSettingsTests(SimpleTestCase):
         'CLOUDINARY_API_SECRET': '',
     }
 
-    def import_settings(self, **overrides):
+    def import_settings(self, *, script='import config.settings', **overrides):
         environment = os.environ.copy()
         environment.update(self.base_environment)
         environment.update(overrides)
         return subprocess.run(
-            [sys.executable, '-c', 'import config.settings'],
+            [sys.executable, '-c', script],
             cwd=os.getcwd(),
             env=environment,
             capture_output=True,
@@ -55,6 +55,26 @@ class DeployedMediaSettingsTests(SimpleTestCase):
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_staging_uses_cloudinary_as_default_media_storage(self):
+        result = self.import_settings(
+            script=(
+                'import config.settings as s; '
+                'print(s.STORAGES["default"]["BACKEND"])'
+            ),
+            ENVIRONMENT='staging',
+            CLOUDINARY_URL='cloudinary://key:secret@staging-cloud',
+            PRIVACY_CONTROLLER_NAME='Staging synthetic data only',
+            PRIVACY_CONTACT_EMAIL='staging-invalid@example.invalid',
+            PRIVACY_NOTICE_APPROVED='False',
+            NOTIFICATION_PROVIDER='console',
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.strip(),
+            'cloudinary_storage.storage.MediaCloudinaryStorage',
+        )
 
     def test_staging_without_cloudinary_is_rejected(self):
         result = self.import_settings(
@@ -157,6 +177,21 @@ class DeployedMediaSettingsTests(SimpleTestCase):
         result = self.import_settings(**self.production_environment())
 
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_production_uses_cloudinary_as_default_media_storage(self):
+        result = self.import_settings(
+            script=(
+                'import config.settings as s; '
+                'print(s.STORAGES["default"]["BACKEND"])'
+            ),
+            **self.production_environment(),
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.strip(),
+            'cloudinary_storage.storage.MediaCloudinaryStorage',
+        )
 
     def test_production_rejects_sandbox_mpesa(self):
         result = self.import_settings(**self.production_environment(

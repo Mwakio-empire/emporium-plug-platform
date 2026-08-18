@@ -87,7 +87,9 @@ class NotificationEngineService:
                 method='POST',
             )
             try:
-                with urlopen(request, timeout=10) as response:
+                # `request` always targets one of the two fixed HTTPS provider
+                # endpoints above; no caller-controlled URL or scheme is used.
+                with urlopen(request, timeout=10) as response:  # nosec B310
                     status_code = response.status
                     data = json.loads(response.read().decode('utf-8'))
             except HTTPError as exc:

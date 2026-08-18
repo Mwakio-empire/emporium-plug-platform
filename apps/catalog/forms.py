@@ -33,8 +33,11 @@ class ProductVariantAdminForm(forms.ModelForm):
         selected = {value.option_id for value in values}
         if expected and selected != expected:
             missing = product.options.exclude(pk__in=selected).values_list('name', flat=True)
+            missing_labels = ', '.join(missing)
             raise ValidationError(
-                f"Select one value from every option group. Missing: {', '.join(missing)}."
+                'Choose one value from every option group. Missing: {}.'.format(
+                    missing_labels,
+                )
             )
         if any(value.option.product_id != product.pk for value in values):
             raise ValidationError('Every selected option value must belong to this product.')

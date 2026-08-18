@@ -18,11 +18,12 @@ These are accepted facts as of 2026-07-26, not hidden defects.
   encrypted-archive restore remain unverified until staging is funded.
 - Monitoring endpoints and the Beat-to-worker heartbeat are implemented locally, but no external uptime, Render or Sentry alert/recovery delivery has been proven because staging is unfunded.
 - The load tool is locally verified, but production-sized staging load, an approved peak-workload model and an independent penetration test/retest are outstanding launch gates.
-- The current working tree's **714-test** SQLite regression passes with one
+- The current working tree's **718-test** SQLite regression passes with one
   expected skip because SQLite does not expose `select_for_update`. The 72 focused
   catalogue, stock-presentation, destination and delivery-quote tests pass on
-  PostgreSQL. The last full PostgreSQL run covered 710 tests before this polish;
-  the committed staging release must repeat the complete PostgreSQL suite.
+  PostgreSQL. The repeatable full PostgreSQL verification now passes all 718
+  tests with zero skips, and the focused critical-flow run passes 31 tests; the
+  committed staging release must repeat the suite through PostgreSQL-backed CI.
   Production-sized load, Nairobi-to-Frankfurt latency, external security and
   client UAT remain pending.
 
@@ -50,6 +51,16 @@ These are accepted facts as of 2026-07-26, not hidden defects.
 - Authorization permission classes are duplicated across apps; behavior is tested but not yet centralized.
 - API documentation is Markdown; no published, versioned OpenAPI compatibility contract exists.
 - Legal compliance and security certification cannot be claimed from code review.
+- The ordinary local `.env` still selects SQLite for lightweight development.
+  Release evidence uses the protected repeatable PostgreSQL mode in
+  `start_local_postgres.ps1 -VerifyRelease`; repeat it on the exact committed SHA.
+- Production backup settings fail closed when disabled, but a true scheduled job
+  is not currently declared in Celery Beat or the production Blueprint. Paid
+  Render PITR plus a separate version-compatible Render-to-S3 Cron Job must be
+  provisioned, triggered and restored before launch; `BACKUP_ENABLED=True` alone
+  is not backup evidence.
+- Production can currently boot without a Sentry DSN. Monitoring is therefore an
+  external launch gate until the client-owned project and alert path are active.
 
 ## Operational/UI boundaries
 

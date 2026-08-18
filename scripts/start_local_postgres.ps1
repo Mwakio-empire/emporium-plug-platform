@@ -6,7 +6,11 @@ param(
     [string]$LegacyDatabaseName = 'emporium_current',
 
     [ValidateRange(1024, 65535)]
-    [int]$LegacyPostgresPort = 55432
+    [int]$LegacyPostgresPort = 55432,
+
+    [switch]$VerifyRelease,
+
+    [string]$TestLabels = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -122,6 +126,40 @@ try {
     & $python manage.py check
     if ($LASTEXITCODE -ne 0) {
         throw 'Django system checks failed; the website was not started.'
+    }
+
+    if ($VerifyRelease) {
+        Write-Host 'Verifying migration drift against PostgreSQL...' -ForegroundColor Cyan
+        & $python manage.py makemigrations --check --dry-run
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Migration drift verification failed.'
+        }
+
+        Write-Host 'Compiling application Python...' -ForegroundColor Cyan
+        & $python -m compileall -q apps config
+        if ($LASTEXITCODE -ne 0) {
+            throw 'Python compilation failed.'
+        }
+
+        $selectedTestLabels = @(
+            $TestLabels -split ',' |
+                ForEach-Object { $_.Trim() } |
+                Where-Object { $_ }
+        )
+        if ($selectedTestLabels.Count -gt 0) {
+            Write-Host 'Running the selected PostgreSQL release tests...' -ForegroundColor Cyan
+            & $python manage.py test @selectedTestLabels --verbosity 1
+        }
+        else {
+            Write-Host 'Running the complete PostgreSQL test suite...' -ForegroundColor Cyan
+            & $python manage.py test --verbosity 1
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw 'The PostgreSQL test suite failed.'
+        }
+
+        Write-Host 'PostgreSQL release verification passed.' -ForegroundColor Green
+        exit 0
     }
 
     Write-Host 'PostgreSQL and Redis are ready.' -ForegroundColor Green

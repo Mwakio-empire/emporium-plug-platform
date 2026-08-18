@@ -1,5 +1,35 @@
 # Phase 15 verification record
 
+## Production re-audit update — 2026-08-16
+
+- Authoritative business context and active runtime paths were rechecked rather
+  than relying on integration file presence.
+- Django checks, migration drift, Python compilation, dependency consistency,
+  Python/production-JavaScript vulnerability audits and the frontend build pass.
+- Complete SQLite regression: **718 passed, 1 expected PostgreSQL row-lock
+  feature skip, 0 failed**.
+- Repeatable PostgreSQL release verification applies migrations, checks drift,
+  compiles and runs the complete suite without printing protected local
+  credentials: **718 passed, 0 skipped, 0 failed**.
+- Focused PostgreSQL final-unit locking, payment-idempotency/polling and
+  stock-restoration regression: **31 passed, 0 skipped, 0 failed**.
+- The ordinary local `.env` remains SQLite for lightweight development; release
+  evidence must use `start_local_postgres.ps1 -VerifyRelease` on the committed SHA.
+- Deployed Django default media storage now uses Cloudinary; tests remain
+  synthetic/local. Focused deployed-setting suite: **15 passed**.
+- Bandit's medium/high CI command passes after reviewing two findings: ordinary
+  option-validation text was rewritten to avoid an SQL false positive, and the
+  fixed Africa's Talking HTTPS URL has a narrowly documented `B310` exception.
+- GitHub Actions now provisions PostgreSQL 17 and Redis 7 instead of using
+  SQLite for the exact release-commit test job. A green pushed run is still
+  required before Phase 0 passes.
+- Demo catalogue and simulated review commands both fail closed in production;
+  the catalogue production guard has dedicated regression coverage.
+- The re-audit identified unscheduled logical backups, optional production
+  Sentry, disabled report email, unprovisioned Render resources and uncompleted
+  provider/UAT/security gates. They remain blockers; no readiness label was
+  inflated to hide them.
+
 ## Pre-production hardening update — 2026-08-09
 
 - Inventory transfer receipt locks source and destination balances in stable

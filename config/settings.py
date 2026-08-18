@@ -211,7 +211,12 @@ CLOUDINARY_CONFIGURED = bool(CLOUDINARY_URL) or all(
 )
 
 # ----------------------------------------------------------------------
-# STORAGE BACKENDS (AWS S3 or local fallback)
+# STORAGE BACKENDS
+#
+# Catalog models use CloudinaryField directly, but future ordinary Django
+# FileField/ImageField uploads still go through STORAGES['default']. Deployed
+# environments must therefore use persistent remote media storage as their
+# default rather than silently writing files to an ephemeral application disk.
 # ----------------------------------------------------------------------
 USE_AWS_S3 = env.bool('USE_AWS_S3', default=False)
 
@@ -231,6 +236,19 @@ if USE_AWS_S3:
         "staticfiles": {
             "BACKEND": "storages.backends.s3boto3.S3StaticStorage",
             "OPTIONS": {"location": "static"},
+        },
+    }
+elif IS_DEPLOYED_ENVIRONMENT:
+    if not CLOUDINARY_CONFIGURED:
+        raise ImproperlyConfigured(
+            'Production/staging requires Cloudinary credentials for persistent media.'
+        )
+    STORAGES = {
+        "default": {
+            "BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
         },
     }
 else:

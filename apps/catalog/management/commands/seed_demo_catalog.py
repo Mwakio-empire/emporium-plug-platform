@@ -70,6 +70,8 @@ class Command(BaseCommand):
         parser.add_argument('--skip-images', action='store_true')
 
     def handle(self, *args, **options):
+        if getattr(settings, 'IS_PRODUCTION', False):
+            raise CommandError('Demo catalogue data is blocked in production.')
         if options['quantity'] < 0:
             raise CommandError('Quantity cannot be negative.')
         branch = Branch.objects.filter(name=options['branch'], is_active=True).first()
